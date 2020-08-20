@@ -1,0 +1,2 @@
+Find the ~folder_id~ of your project, and save ~folder_id~ in the file
+~.folder_id~.
