@@ -217,9 +217,9 @@ def sync_func(files_from, create_file_at_to, from_exists_in_to, from_equal_to_to
         click.echo("\t%s" % name)
         create_file_at_to(name)
 
-    click.echo("\n[SYNC] Following file(s) being of latest version")
-    for name in synced_list:
-        click.echo("\t%s" % name)
+    # click.echo("\n[SYNC] Following file(s) being of latest version")
+    # for name in synced_list:
+    #     click.echo("\t%s" % name)
 
     click.echo(
         "\n[SKIP] Following file(s) version on [%s] fall behind of [%s], but skipped as per your request"
