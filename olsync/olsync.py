@@ -19,7 +19,6 @@ import dateutil.parser
 import glob
 import fnmatch
 import traceback
-from pathlib import Path
 
 try:
     # Import for pip installation / wheel
@@ -199,10 +198,9 @@ def sync_func(files_from, create_file_at_to, from_exists_in_to, from_equal_to_to
         else:
             newly_add_list.append(name)
 
-    click.echo(
-        "\n[NEW] Following new file(s) created on [%s]" % to_name)
+    # click.echo("\n[NEW] Following new file(s) created on [%s]" % to_name)
     for name in newly_add_list:
-        click.echo("\t%s" % name)
+        click.echo("creating {} on {}".format(name, to_name))
         try:
             create_file_at_to(name)
         except:
@@ -210,10 +208,9 @@ def sync_func(files_from, create_file_at_to, from_exists_in_to, from_equal_to_to
                 print(traceback.format_exc())
             raise click.ClickException("\n[ERROR] An error occurred while creating new file(s) on [%s]" % to_name)
 
-    click.echo(
-        "\n[UPDATE] Following file(s) updated on [%s]" % to_name)
+    # click.echo("\n[UPDATE] Following file(s) updated on [%s]" % to_name)
     for name in update_list:
-        click.echo("\t%s" % name)
+        click.echo("updating {} on {}".format(name, to_name))
         try:
             create_file_at_to(name)
         except:
@@ -221,15 +218,13 @@ def sync_func(files_from, create_file_at_to, from_exists_in_to, from_equal_to_to
                 print(traceback.format_exc())
             raise click.ClickException("\n[ERROR] An error occurred while updating file(s) on [%s]" % to_name)
 
-    click.echo(
-        "\n[SYNC] Following file(s) are up to date")
-    for name in synced_list:
-        click.echo("\t%s" % name)
+    # click.echo("\n[SYNC] Following file(s) are up to date")
+    # for name in synced_list:
+        # click.echo("\t%s" % name)
 
-    click.echo(
-        "\n[SKIP] Following file(s) on [%s] have not been synced to [%s]" % (from_name, to_name))
-    for name in not_sync_list:
-        click.echo("\t%s" % name)
+    # click.echo("\n[SKIP] Following file(s) on [%s] have not been synced to [%s]" % (from_name, to_name))
+    # for name in not_sync_list:
+    #     click.echo("\t%s" % name)
 
     click.echo("")
     click.echo("✅  Synced files from [%s] to [%s]" % (from_name, to_name))
@@ -249,8 +244,8 @@ def execute_action(action, progress_message, success_message, fail_message, verb
             spinner.write(success_message)
             spinner.ok("✅ ")
         else:
-            spinner.fail("💥 ")
             raise click.ClickException(fail_message)
+            spinner.fail("💥 ")
 
         return success
 
@@ -275,7 +270,7 @@ def olignore_keep_list(olignore_path):
         keep_list = [f for f in files if not any(
             fnmatch.fnmatch(f, ignore) for ignore in ignore_pattern)]
 
-    keep_list = [Path(item).as_posix() for item in keep_list if not os.path.isdir(item)]
+    keep_list = [item for item in keep_list if not os.path.isdir(item)]
     return keep_list
 
 
