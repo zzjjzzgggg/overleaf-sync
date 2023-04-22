@@ -22,7 +22,8 @@ LOGIN_URL = "https://www.overleaf.com/login"
 PROJECT_URL = "https://www.overleaf.com/project"  # The dashboard URL
 # The URL to download all the files in zip format
 DOWNLOAD_URL = "https://www.overleaf.com/project/{}/download/zip"
-UPLOAD_URL = "https://www.overleaf.com/project/{}/upload"  # The URL to upload files
+# UPLOAD_URL = "https://www.overleaf.com/project/{}/upload"  # The URL to upload files
+UPLOAD_URL = "https://www.overleaf.com/project/{}/upload"
 FOLDER_URL = "https://www.overleaf.com/project/{}/folder"  # The URL to create folders
 DELETE_URL = "https://www.overleaf.com/project/{}/doc/{}"  # The URL to delete files
 COMPILE_URL = "https://www.overleaf.com/project/{}/compile?enable_pdf_caching=true"  # The URL to compile the project
@@ -216,10 +217,10 @@ class OverleafClient(object):
 
         # The file name contains path separators, check folders
         if PATH_SEP in file_name:
-            local_folders = file_name.split(
-                PATH_SEP)[:-1]  # Remove last item since this is the file name
-            current_overleaf_folder = project_infos['rootFolder'][0][
-                'folders']  # Set the current remote folder
+            # Remove last item since this is the file name
+            local_folders = file_name.split(PATH_SEP)[:-1]
+            # Set the current remote folder
+            current_overleaf_folder = project_infos['rootFolder'][0]['folders']
 
             for local_folder in local_folders:
                 exists_on_remote = False
@@ -237,21 +238,27 @@ class OverleafClient(object):
                     current_overleaf_folder.append(new_folder)
                     folder_id = new_folder['_id']
                     current_overleaf_folder = new_folder['folders']
-        params = {
-            "folder_id": folder_id,
-            "_csrf": self._csrf,
-            "qquuid": str(uuid.uuid4()),
-            "qqfilename": file_name,
-            "qqtotalfilesize": file_size,
+
+        # Upload the file to the predefined folder
+        params = {'folder_id': folder_id}
+        data = {
+            "relativePath": "null",
+            "name": file_name,
         }
-        files = {"qqfile": file}
+        files = {"qqfile": (file_name, file)}
+        headers = {
+            "X-CSRF-TOKEN": self._csrf,
+        }
 
         # Upload the file to the predefined folder
         r = reqs.post(UPLOAD_URL.format(project_id),
                       cookies=self._cookie,
+                      headers=headers,
                       params=params,
+                      data=data,
                       files=files)
 
+        # print(params, r.status_code, r.content)
         return r.status_code == str(200) and json.loads(r.content)["success"]
 
     def delete_file(self, project_id, project_infos, file_name):
