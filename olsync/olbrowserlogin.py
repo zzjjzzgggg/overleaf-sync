@@ -19,7 +19,7 @@ from PySide6.QtWidgets import *
 LOGIN_URL = "https://www.overleaf.com/login"
 PROJECT_URL = "https://www.overleaf.com/project"  # The dashboard URL
 # JS snippet to get the first link
-JAVASCRIPT_EXTRACT_PROJECT_URL = "document.getElementsByClassName('project-dash-table')[0].getElementsByTagName('a')[0].href"
+JAVASCRIPT_EXTRACT_PROJECT_URL = "document.getElementsByClassName('dash-cell-name')[1].firstChild.href"
 # JS snippet to extract the csrfToken
 JAVASCRIPT_CSRF_EXTRACTOR = "document.getElementsByName('ol-csrfToken')[0].content"
 # Name of the cookies we want to extract
