@@ -319,7 +319,8 @@ class OverleafClient(object):
 
         r = reqs.delete(DELETE_URL.format(project_id, file_type, file_id),
                         cookies=self._cookie,
-                        headers=headers)
+                        headers=headers,
+                        verify=False)
 
         return r.status_code == '204'
 
