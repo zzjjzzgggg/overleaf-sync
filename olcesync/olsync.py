@@ -95,7 +95,8 @@ def main(ctx, local, remote, project_name, cookie_path, sync_path, olignore_path
         # Change the current directory to the specified sync path
         os.chdir(sync_path)
 
-        project_name = project_name or os.path.basename(os.getcwd())
+        project_name = get_project_name(project_name)
+        print("Using project name:", project_name)
         project = execute_action(
             lambda: overleaf_client.get_project(project_name), "Querying project",
             "Project queried successfully.", "Project could not be queried.",
@@ -480,6 +481,27 @@ def olignore_keep_list(olignore_path):
         Path(item).as_posix() for item in keep_list if not os.path.isdir(item)
     ]
     return keep_list
+
+
+def save_project_name(project_name):
+    with open(".olproject_name", "w") as fw:
+        fw.write(project_name)
+
+
+def get_project_name(project_name):
+    """If the project_name is provided, save it to file ".olproject_name".
+    Otherwise, try to read it from ".olproject_name". If the project_name is still
+    empty, then use currrent folder name.
+
+    """
+    if project_name:
+        with open(".olproject_name", "w") as fw:
+            fw.write(project_name)
+    elif os.path.isfile(".olproject_name"):
+        with open(".olproject_name", 'r') as f:
+            project_name = f.read().rstrip()
+    project_name = project_name or os.path.basename(os.getcwd())
+    return project_name
 
 
 if __name__ == "__main__":
