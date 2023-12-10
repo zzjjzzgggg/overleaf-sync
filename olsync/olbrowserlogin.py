@@ -8,16 +8,15 @@
 # License: MIT
 # Version: 1.2.0
 ##################################################
-
-from PySide6.QtCore import *
+from PySide6.QtCore import QCoreApplication, QUrl
 from PySide6.QtWebEngineCore import (QWebEnginePage, QWebEngineProfile,
                                      QWebEngineSettings)
-from PySide6.QtWebEngineWidgets import *
-from PySide6.QtWidgets import *
+from PySide6.QtWebEngineWidgets import QWebEngineView
+from PySide6.QtWidgets import QApplication, QMainWindow
 
 # Where to get the CSRF Token and where to send the login request to
 LOGIN_URL = "https://www.overleaf.com/login"
-PROJECT_URL = "https://www.overleaf.com/project"  # The dashboard URL
+PROJECT_URL = "https://www.overleaf.com/project"    # The dashboard URL
 # JS snippet to get the first link
 JAVASCRIPT_EXTRACT_PROJECT_URL = "document.getElementsByClassName('dash-cell-name')[1].firstChild.href"
 # JS snippet to extract the csrfToken
@@ -47,8 +46,8 @@ class OlBrowserLoginWindow(QMainWindow):
         self.profile.setPersistentCookiesPolicy(
             QWebEngineProfile.NoPersistentCookies)
 
-        self.profile.settings().setAttribute(
-            QWebEngineSettings.JavascriptEnabled, True)
+        self.profile.settings().setAttribute(QWebEngineSettings.JavascriptEnabled,
+                                             True)
 
         webpage = QWebEnginePage(self.profile, self)
         self.webview.setPage(webpage)
@@ -72,8 +71,8 @@ class OlBrowserLoginWindow(QMainWindow):
             ).runJavaScript(JAVASCRIPT_CSRF_EXTRACTOR, 0, callback))
 
         if self.webview.url().toString() == PROJECT_URL:
-            self.webview.page().runJavaScript(JAVASCRIPT_EXTRACT_PROJECT_URL,
-                                              0, callback)
+            self.webview.page().runJavaScript(JAVASCRIPT_EXTRACT_PROJECT_URL, 0,
+                                              callback)
 
     def handle_cookie_added(self, cookie):
         cookie_name = cookie.name().data().decode('utf-8')
