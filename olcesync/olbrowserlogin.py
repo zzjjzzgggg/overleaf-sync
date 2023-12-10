@@ -9,15 +9,16 @@
 # Version: 1.2.0
 ##################################################
 
-from PySide6.QtCore import *
+from PySide6.QtCore import QCoreApplication, QUrl
 from PySide6.QtWebEngineCore import (QWebEnginePage, QWebEngineProfile,
                                      QWebEngineSettings)
-from PySide6.QtWebEngineWidgets import *
-from PySide6.QtWidgets import *
+from PySide6.QtWebEngineWidgets import QWebEngineView
+from PySide6.QtWidgets import QApplication, QMainWindow
 
 # Where to get the CSRF Token and where to send the login request to
-LOGIN_URL = "https://202.117.43.87/login"
-PROJECT_URL = "https://202.117.43.87/project"    # The dashboard URL
+BASE_URL = "https://202.117.43.87"
+LOGIN_URL = BASE_URL + "/login"
+PROJECT_URL = BASE_URL + "/project"    # The dashboard URL
 # JS snippet to get the first link
 JAVASCRIPT_EXTRACT_PROJECT_URL = "document.getElementsByClassName('dash-cell-name')[1].firstChild.href"
 # JS snippet to extract the csrfToken
