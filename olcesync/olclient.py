@@ -1,3 +1,5 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8 -*-
 """Overleaf Client"""
 ##################################################
 # MIT License
@@ -297,18 +299,25 @@ class OverleafClient(object):
         # The file name contains path separators, check folders
         if PATH_SEP in file_name:
             items = file_name.split(PATH_SEP)
-            if len(items) > 2:
-                print('Folder depth is larger than 2. Cannot handle it!')
-                return False
-            local_folder, only_file_name = items
-            # Remove last item since this is the file name
+            dir_depth = len(items) - 1
+            only_file_name = items[-1]
             current_overleaf_folder = project_infos['rootFolder'][0]['folders']
-            for remote_folder in current_overleaf_folder:
-                if local_folder == remote_folder['name']:
-                    file_id, file_type = search_dic(only_file_name, remote_folder)
-                    break
-        # File is in root folder
-        else:
+            for i in range(dir_depth):
+                success = False
+                for remote_folder in current_overleaf_folder:
+                    if items[i] == remote_folder['name']:
+                        if i != dir_depth - 1:
+                            current_overleaf_folder = remote_folder['folders']
+                        else:
+                            file_id, file_type = search_dic(
+                                only_file_name, remote_folder)
+                        success = True
+                        break
+                if not success:
+                    print("Local folder {} does not exist in remote!".format(
+                        items[i]))
+                    return False
+        else:    # File is in root folder
             remote_folder = project_infos['rootFolder'][0]
             file_id, file_type = search_dic(file_name, remote_folder)
 

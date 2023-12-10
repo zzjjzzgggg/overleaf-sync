@@ -75,8 +75,14 @@ class OverleafClient(object):
                                    'html.parser').find('input', {
                                        'name': '_csrf'
                                    }).get('value')
-        login_json = {"_csrf": self._csrf, "email": username, "password": password}
-        post_login = reqs.post(LOGIN_URL, json=login_json, cookies=get_login.cookies)
+        login_json = {
+            "_csrf": self._csrf,
+            "email": username,
+            "password": password
+        }
+        post_login = reqs.post(LOGIN_URL,
+                               json=login_json,
+                               cookies=get_login.cookies)
 
         # On a successful authentication the Overleaf API returns a new authenticated cookie.
         # If the cookie is different than the cookie of the GET request the authentication was successful
@@ -131,7 +137,9 @@ class OverleafClient(object):
         Params: project_id, the id of the project
         Returns: bytes string (zip file)
         """
-        r = reqs.get(DOWNLOAD_URL.format(project_id), stream=True, cookies=self._cookie)
+        r = reqs.get(DOWNLOAD_URL.format(project_id),
+                     stream=True,
+                     cookies=self._cookie)
         return r.content
 
     def create_folder(self, project_id, parent_folder_id, folder_name):
@@ -179,8 +187,8 @@ class OverleafClient(object):
             project_infos = project_infos_dict
 
         # Convert cookie from CookieJar to string
-        cookie = "GCLB={}; overleaf_session2={}".format(self._cookie["GCLB"],
-                                                        self._cookie["overleaf_session2"])
+        cookie = "GCLB={}; overleaf_session2={}".format(
+            self._cookie["GCLB"], self._cookie["overleaf_session2"])
 
         # Connect to Overleaf Socket.IO, send a time parameter and the cookies
         socket_io = SocketIO(BASE_URL,
@@ -192,7 +200,8 @@ class OverleafClient(object):
         socket_io.wait_for_callbacks()
 
         # Send the joinProject event and receive the project infos
-        socket_io.emit('joinProject', {'project_id': project_id}, set_project_infos)
+        socket_io.emit('joinProject', {'project_id': project_id},
+                       set_project_infos)
         socket_io.wait_for_callbacks()
 
         # Disconnect from the socket if still connected
@@ -238,7 +247,8 @@ class OverleafClient(object):
                         break
                 # Create the folder if it doesn't exist
                 if not exists_on_remote:
-                    new_folder = self.create_folder(project_id, folder_id, local_folder)
+                    new_folder = self.create_folder(project_id, folder_id,
+                                                    local_folder)
                     current_overleaf_folder.append(new_folder)
                     folder_id = new_folder['_id']
                     current_overleaf_folder = new_folder['folders']
@@ -280,18 +290,25 @@ class OverleafClient(object):
         # The file name contains path separators, check folders
         if PATH_SEP in file_name:
             items = file_name.split(PATH_SEP)
-            if len(items) > 2:
-                print('Folder depth is larger than 2. Cannot handle it!')
-                return False
-            local_folder, only_file_name = items
-            # Remove last item since this is the file name
+            dir_depth = len(items) - 1
+            only_file_name = items[-1]
             current_overleaf_folder = project_infos['rootFolder'][0]['folders']
-            for remote_folder in current_overleaf_folder:
-                if local_folder == remote_folder['name']:
-                    file_id, file_type = search_dic(only_file_name, remote_folder)
-                    break
-        # File is in root folder
-        else:
+            for i in range(dir_depth):
+                success = False
+                for remote_folder in current_overleaf_folder:
+                    if items[i] == remote_folder['name']:
+                        if i != dir_depth - 1:
+                            current_overleaf_folder = remote_folder['folders']
+                        else:
+                            file_id, file_type = search_dic(
+                                only_file_name, remote_folder)
+                        success = True
+                        break
+                if not success:
+                    print("Local folder {} does not exist in remote!".format(
+                        items[i]))
+                    return False
+        else:    # File is in root folder
             remote_folder = project_infos['rootFolder'][0]
             file_id, file_type = search_dic(file_name, remote_folder)
 
@@ -338,7 +355,8 @@ class OverleafClient(object):
         if compile_result["status"] != "success":
             raise reqs.HTTPError()
 
-        pdf_file = next(v for v in compile_result['outputFiles'] if v['type'] == 'pdf')
+        pdf_file = next(v for v in compile_result['outputFiles']
+                        if v['type'] == 'pdf')
 
         download_req = reqs.get(BASE_URL + pdf_file['url'],
                                 cookies=self._cookie,
