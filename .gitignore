@@ -112,7 +112,7 @@ venv.bak/
 .DS_Store
 
 # dev testing
-setup.py
+# setup.py
 test*
 .olauth
 .olignore
