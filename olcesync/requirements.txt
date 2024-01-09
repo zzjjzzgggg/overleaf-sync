@@ -1,0 +1,7 @@
+requests~=2.25.1
+beautifulsoup4~=4.9.3
+yaspin~=2.0.0
+python-dateutil~=2.8.1
+click == 8.0.1
+socketIO-client == 0.7.2
+PySide6==6.5.0
