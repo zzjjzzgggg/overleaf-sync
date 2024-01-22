@@ -21,16 +21,6 @@ from socketIO_client import SocketIO
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# Where to get the CSRF Token and where to send the login request to
-BASE_URL = "https://202.117.43.87"
-LOGIN_URL = BASE_URL + "/login"
-PROJECT_URL = BASE_URL + "/project"    # The dashboard URL
-# The URL to download all the files in zip format
-DOWNLOAD_URL = BASE_URL + "/project/{}/download/zip"
-UPLOAD_URL = BASE_URL + "/project/{}/upload"
-FOLDER_URL = BASE_URL + "/project/{}/folder"    # The URL to create folders
-DELETE_URL = BASE_URL + "/project/{}/{}/{}"    # The URL to delete files
-COMPILE_URL = BASE_URL + "/project/{}/compile?enable_pdf_caching=true"    # The URL to compile the project
 PATH_SEP = "/"    # Use hardcoded path separator for both windows and posix system
 
 
@@ -62,9 +52,21 @@ class OverleafClient(object):
                 if all(p.get(k) == v for k, v in more_attrs.items()):
                     yield p
 
-    def __init__(self, cookie=None, csrf=None):
+    def __init__(self, server_ip, cookie=None, csrf=None):
         self._cookie = cookie    # Store the cookie for authenticated requests
         self._csrf = csrf    # Store the CSRF token since it is needed for some requests
+
+        self.BASE_URL = "https://" + server_ip
+        self.LOGIN_URL = self.BASE_URL + "/login"
+        self.PROJECT_URL = self.BASE_URL + "/project"
+        self.DOWNLOAD_URL = self.BASE_URL + "/project/{}/download/zip"
+        self.UPLOAD_URL = self.BASE_URL + "/project/{}/upload"
+        # The URL to create folders
+        self.FOLDER_URL = self.BASE_URL + "/project/{}/folder"
+        # The URL to delete files
+        self.DELETE_URL = self.BASE_URL + "/project/{}/{}/{}"
+        # The URL to compile the project
+        self.COMPILE_URL = self.BASE_URL + "/project/{}/compile?enable_pdf_caching=true"
 
     def login(self, username, password):
         """
@@ -74,7 +76,7 @@ class OverleafClient(object):
         Returns: Dict of cookie and CSRF
         """
 
-        get_login = reqs.get(LOGIN_URL)
+        get_login = reqs.get(self.LOGIN_URL)
         self._csrf = BeautifulSoup(get_login.content,
                                    'html.parser').find('input', {
                                        'name': '_csrf'
@@ -84,7 +86,7 @@ class OverleafClient(object):
             "email": username,
             "password": password
         }
-        post_login = reqs.post(LOGIN_URL,
+        post_login = reqs.post(self.LOGIN_URL,
                                json=login_json,
                                cookies=get_login.cookies,
                                verify=False)
@@ -98,7 +100,7 @@ class OverleafClient(object):
             # Enrich cookie with GCLB cookie from GET request above
             self._cookie['GCLB'] = get_login.cookies['GCLB']
             # CSRF changes after making the login request, new CSRF token will be on the projects page
-            projects_page = reqs.get(PROJECT_URL, cookies=self._cookie)
+            projects_page = reqs.get(self.PROJECT_URL, cookies=self._cookie)
             self._csrf = BeautifulSoup(projects_page.content, 'html.parser').find(
                 'meta', {
                     'name': 'ol-csrfToken'
@@ -111,7 +113,9 @@ class OverleafClient(object):
         Get all of a user's active projects (= not archived and not trashed)
         Returns: List of project objects
         """
-        projects_page = reqs.get(PROJECT_URL, cookies=self._cookie, verify=False)
+        projects_page = reqs.get(self.PROJECT_URL,
+                                 cookies=self._cookie,
+                                 verify=False)
         json_content = json.loads(
             BeautifulSoup(projects_page.content,
                           'html.parser').find('meta', {
@@ -126,7 +130,9 @@ class OverleafClient(object):
         Params: project_name, the name of the project
         Returns: project object
         """
-        projects_page = reqs.get(PROJECT_URL, cookies=self._cookie, verify=False)
+        projects_page = reqs.get(self.PROJECT_URL,
+                                 cookies=self._cookie,
+                                 verify=False)
         json_content = json.loads(
             BeautifulSoup(projects_page.content,
                           'html.parser').find('meta', {
@@ -143,7 +149,7 @@ class OverleafClient(object):
         Params: project_id, the id of the project
         Returns: bytes string (zip file)
         """
-        r = reqs.get(DOWNLOAD_URL.format(project_id),
+        r = reqs.get(self.DOWNLOAD_URL.format(project_id),
                      stream=True,
                      cookies=self._cookie,
                      verify=False)
@@ -163,7 +169,7 @@ class OverleafClient(object):
 
         params = {"parent_folder_id": parent_folder_id, "name": folder_name}
         headers = {"X-Csrf-Token": self._csrf}
-        r = reqs.post(FOLDER_URL.format(project_id),
+        r = reqs.post(self.FOLDER_URL.format(project_id),
                       cookies=self._cookie,
                       headers=headers,
                       json=params,
@@ -198,7 +204,7 @@ class OverleafClient(object):
         cookie = "sharelatex.sid={}".format(self._cookie["sharelatex.sid"])
 
         # Connect to Overleaf Socket.IO, send a time parameter and the cookies
-        socket_io = SocketIO(BASE_URL,
+        socket_io = SocketIO(self.BASE_URL,
                              params={'t': int(time.time())},
                              headers={'Cookie': cookie},
                              verify=False)
@@ -273,7 +279,7 @@ class OverleafClient(object):
         }
 
         # Upload the file to the predefined folder
-        r = reqs.post(UPLOAD_URL.format(project_id),
+        r = reqs.post(self.UPLOAD_URL.format(project_id),
                       cookies=self._cookie,
                       headers=headers,
                       params=params,
@@ -326,7 +332,7 @@ class OverleafClient(object):
 
         headers = {"X-Csrf-Token": self._csrf}
 
-        r = reqs.delete(DELETE_URL.format(project_id, file_type, file_id),
+        r = reqs.delete(self.DELETE_URL.format(project_id, file_type, file_id),
                         cookies=self._cookie,
                         headers=headers,
                         verify=False)
@@ -352,7 +358,7 @@ class OverleafClient(object):
             "stopOnFirstError": False
         }
 
-        r = reqs.post(COMPILE_URL.format(project_id),
+        r = reqs.post(self.COMPILE_URL.format(project_id),
                       cookies=self._cookie,
                       headers=headers,
                       json=body,
@@ -369,7 +375,7 @@ class OverleafClient(object):
         pdf_file = next(v for v in compile_result['outputFiles']
                         if v['type'] == 'pdf')
 
-        download_req = reqs.get(BASE_URL + pdf_file['url'],
+        download_req = reqs.get(self.BASE_URL + pdf_file['url'],
                                 cookies=self._cookie,
                                 headers=headers,
                                 verify=False)

@@ -16,9 +16,6 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QApplication, QMainWindow
 
 # Where to get the CSRF Token and where to send the login request to
-BASE_URL = "https://202.117.43.87"
-LOGIN_URL = BASE_URL + "/login"
-PROJECT_URL = BASE_URL + "/project"    # The dashboard URL
 # JS snippet to get the first link
 JAVASCRIPT_EXTRACT_PROJECT_URL = "document.getElementsByClassName('dash-cell-name')[1].firstChild.href"
 # JS snippet to extract the csrfToken
@@ -43,13 +40,16 @@ class OlBrowserLoginWindow(QMainWindow):
     Opens a browser window to securely login the user and returns relevant login data.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, server_ip, *args, **kwargs):
         super(OlBrowserLoginWindow, self).__init__(*args, **kwargs)
 
         self.webview = QWebEngineView()
         self._cookies = {}
         self._csrf = ""
         self._login_success = False
+
+        self.LOGIN_URL = "https://{}/login".format(server_ip)
+        self.PROJECT_URL = "https://{}/project".format(server_ip)
 
         self.profile = QWebEngineProfile(self.webview)
         self.cookie_store = self.profile.cookieStore()
@@ -63,7 +63,7 @@ class OlBrowserLoginWindow(QMainWindow):
         webpage = QWebEnginePage(self.profile, self)
         webpage.certificateError.connect(on_cert_error)
         self.webview.setPage(webpage)
-        self.webview.load(QUrl.fromUserInput(LOGIN_URL))
+        self.webview.load(QUrl.fromUserInput(self.LOGIN_URL))
         self.webview.loadFinished.connect(self.handle_load_finished)
 
         self.setCentralWidget(self.webview)
@@ -82,7 +82,7 @@ class OlBrowserLoginWindow(QMainWindow):
             self.webview.loadFinished.connect(lambda x: self.webview.page(
             ).runJavaScript(JAVASCRIPT_CSRF_EXTRACTOR, 0, callback))
 
-        if self.webview.url().toString() == PROJECT_URL:
+        if self.webview.url().toString() == self.PROJECT_URL:
             self.webview.page().runJavaScript(JAVASCRIPT_EXTRACT_PROJECT_URL, 0,
                                               callback)
 
@@ -104,14 +104,14 @@ class OlBrowserLoginWindow(QMainWindow):
         return self._login_success
 
 
-def login():
+def login(server_ip):
     from PySide6.QtCore import QLoggingCategory
     QLoggingCategory.setFilterRules('''\
     qt.webenginecontext.info=false
     ''')
 
     app = QApplication([])
-    ol_browser_login_window = OlBrowserLoginWindow()
+    ol_browser_login_window = OlBrowserLoginWindow(server_ip)
     ol_browser_login_window.show()
     app.exec()
 
@@ -125,4 +125,4 @@ def login():
 
 
 if __name__ == '__main__':
-    print(login())
+    print(login("localhost"))

@@ -12,6 +12,7 @@
 import fnmatch
 import glob
 import io
+import json
 import os
 import pickle
 import traceback
@@ -28,8 +29,8 @@ try:
     from olcesync.olclient import OverleafClient
 except ImportError:
     # Import for development
-    import olbrowserlogin
-    from olclient import OverleafClient
+    import olbrowserlogin  # type:ignore
+    from olclient import OverleafClient  # type:ignore
 
 
 @click.group(invoke_without_command=True)
@@ -48,7 +49,7 @@ except ImportError:
     '-n',
     '--name',
     'project_name',
-    default="",
+    default=None,
     help=
     "Specify the Overleaf project name instead of the default name of the sync directory."
 )
@@ -90,12 +91,20 @@ def main(ctx, local, remote, project_name, cookie_path, sync_path, olignore_path
         with open(cookie_path, 'rb') as f:
             store = pickle.load(f)
 
-        overleaf_client = OverleafClient(store["cookie"], store["csrf"])
+        server_ip = get_key("server")
+        overleaf_client = OverleafClient(server_ip, store["cookie"],
+                                         store["csrf"])
 
         # Change the current directory to the specified sync path
         os.chdir(sync_path)
 
-        project_name = get_project_name(project_name)
+        if project_name: update_info(project=project_name)
+        else:
+            project_name = get_key("project")
+            if not project_name:
+                project_name = os.path.basename(os.getcwd())
+                update_info(project=project_name)
+
         print("Using project name:", project_name)
         project = execute_action(
             lambda: overleaf_client.get_project(project_name), "Querying project",
@@ -161,6 +170,7 @@ def main(ctx, local, remote, project_name, cookie_path, sync_path, olignore_path
 
 
 @main.command()
+@click.option('-s', '--server_ip', help="Server IP.")
 @click.option('--path',
               'cookie_path',
               default=".olauth",
@@ -171,14 +181,15 @@ def main(ctx, local, remote, project_name, cookie_path, sync_path, olignore_path
               'verbose',
               is_flag=True,
               help="Enable extended error logging.")
-def login(cookie_path, verbose):
+def login(server_ip, cookie_path, verbose):
+    update_info(server=server_ip)
     if os.path.isfile(cookie_path) and not click.confirm(
             'Persisted Overleaf cookie already exist. Do you want to override it?'
     ):
         return
     click.clear()
     execute_action(
-        lambda: login_handler(cookie_path), "Login",
+        lambda: login_handler(server_ip, cookie_path), "Login",
         "Login successful. Cookie persisted as `" +
         click.format_filename(cookie_path) + "`. You may now sync your project.",
         "Login failed. Please try again.", verbose)
@@ -217,7 +228,8 @@ def list_projects(cookie_path, verbose):
     with open(cookie_path, 'rb') as f:
         store = pickle.load(f)
 
-    overleaf_client = OverleafClient(store["cookie"], store["csrf"])
+    server_ip = get_key("server")
+    overleaf_client = OverleafClient(server_ip, store["cookie"], store["csrf"])
 
     click.clear()
     execute_action(query_projects, "Querying all projects",
@@ -258,7 +270,8 @@ def download_pdf(project_name, download_path, cookie_path, verbose):
             "Project queried successfully.", "Project could not be queried.",
             verbose)
 
-        file_name, content = overleaf_client.download_pdf(project["id"])
+        file_name, content = overleaf_client.download_pdf(
+            project["id"])    # type:ignore
 
         if file_name and content:
             # Change the current directory to the specified sync path
@@ -275,7 +288,8 @@ def download_pdf(project_name, download_path, cookie_path, verbose):
     with open(cookie_path, 'rb') as f:
         store = pickle.load(f)
 
-    overleaf_client = OverleafClient(store["cookie"], store["csrf"])
+    server_ip = get_key("server")
+    overleaf_client = OverleafClient(server_ip, store["cookie"], store["csrf"])
 
     click.clear()
 
@@ -284,8 +298,8 @@ def download_pdf(project_name, download_path, cookie_path, verbose):
                    "Downloading project's PDF failed. Please try again.", verbose)
 
 
-def login_handler(path):
-    store = olbrowserlogin.login()
+def login_handler(server, path):
+    store = olbrowserlogin.login(server)
     if store is None:
         return False
     with open(path, 'wb+') as f:
@@ -369,7 +383,8 @@ def sync_func(files_from,
         elif delete_choice == "i":
             not_restored_list.append(name)
 
-    click.echo("\n[NEW] Following new file(s) created on [%s]" % to_name)
+    if newly_add_list:
+        click.echo("\n[NEW] Following files created on [%s]" % to_name)
     for name in newly_add_list:
         click.echo("\t%s" % name)
         try:
@@ -381,7 +396,8 @@ def sync_func(files_from,
                 "\n[ERROR] An error occurred while creating new file(s) on [%s]" %
                 to_name)
 
-    click.echo("\n[NEW] Following new file(s) created on [%s]" % from_name)
+    if restore_list:
+        click.echo("\n[NEW] Following files created on [%s]" % from_name)
     for name in restore_list:
         click.echo("\t%s" % name)
         try:
@@ -393,7 +409,8 @@ def sync_func(files_from,
                 "\n[ERROR] An error occurred while creating new file(s) on [%s]" %
                 from_name)
 
-    click.echo("\n[UPDATE] Following file(s) updated on [%s]" % to_name)
+    if update_list:
+        click.echo("\n[UPDATE] Following files updated on [%s]" % to_name)
     for name in update_list:
         click.echo("\t%s" % name)
         try:
@@ -405,7 +422,8 @@ def sync_func(files_from,
                 "\n[ERROR] An error occurred while updating file(s) on [%s]" %
                 to_name)
 
-    click.echo("\n[DELETE] Following file(s) deleted on [%s]" % to_name)
+    if delete_list:
+        click.echo("\n[DELETE] Following files deleted on [%s]" % to_name)
     for name in delete_list:
         click.echo("\t%s" % name)
         try:
@@ -417,13 +435,17 @@ def sync_func(files_from,
                 "\n[ERROR] An error occurred while creating new file(s) on [%s]" %
                 to_name)
 
-    click.echo("\n[SKIP] Following file(s) on [%s] have not been synced to [%s]" %
-               (from_name, to_name))
+    if not_sync_list:
+        click.echo(
+            "\n[SKIP] Following files on [%s] have not been synced to [%s]" %
+            (from_name, to_name))
     for name in not_sync_list:
         click.echo("\t%s" % name)
 
-    click.echo("\n[SKIP] Following file(s) on [%s] have not been synced to [%s]" %
-               (to_name, from_name))
+    if not_restored_list:
+        click.echo(
+            "\n[SKIP] Following files on [%s] have not been synced to [%s]" %
+            (to_name, from_name))
     for name in not_restored_list:
         click.echo("\t%s" % name)
 
@@ -483,25 +505,25 @@ def olignore_keep_list(olignore_path):
     return keep_list
 
 
-def save_project_name(project_name):
-    with open(".olproject_name", "w") as fw:
-        fw.write(project_name)
+def read_info():
+    info = {}
+    if os.path.isfile(".olinfo"):
+        with open(".olinfo", 'r') as f:
+            info = json.load(f)
+    return info
 
 
-def get_project_name(project_name):
-    """If the project_name is provided, save it to file ".olproject_name".
-    Otherwise, try to read it from ".olproject_name". If the project_name is still
-    empty, then use currrent folder name.
+def get_key(key):
+    info = read_info()
+    return info[key] if key in info else None
 
-    """
-    if project_name:
-        with open(".olproject_name", "w") as fw:
-            fw.write(project_name)
-    elif os.path.isfile(".olproject_name"):
-        with open(".olproject_name", 'r') as f:
-            project_name = f.read().rstrip()
-    project_name = project_name or os.path.basename(os.getcwd())
-    return project_name
+
+def update_info(**args):
+    info = read_info()
+    for k in args:
+        info[k] = args[k]
+    with open(".olinfo", "w") as fw:
+        json.dump(info, fw)
 
 
 if __name__ == "__main__":
