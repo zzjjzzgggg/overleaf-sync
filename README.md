@@ -1,3 +1,8 @@
+
+olsync is for overleaf.
+olcesync is for the community edition.
+
+
 # Overleaf-Sync
 ### Easy Overleaf Two-Way Synchronization
 

@@ -190,8 +190,6 @@ class OverleafClient(object):
         cookie = "GCLB={}; overleaf_session2={}".format(
             self._cookie["GCLB"], self._cookie["overleaf_session2"])
 
-        print("\n", cookie)
-
         # Connect to Overleaf Socket.IO, send a time parameter and the cookies
         socket_io = SocketIO(BASE_URL,
                              params={
