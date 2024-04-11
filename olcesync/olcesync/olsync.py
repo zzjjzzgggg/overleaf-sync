@@ -83,10 +83,14 @@ except ImportError:
 def main(ctx, local, remote, project_name, cookie_path, sync_path, olignore_path,
          verbose):
     if ctx.invoked_subcommand is None:
+        for i in range(5):
+            if not os.path.isfile(cookie_path):
+                os.chdir('..')
+                print("Current directory:", os.getcwd())
+            else:
+                break
         if not os.path.isfile(cookie_path):
-            raise click.ClickException(
-                "Persisted Overleaf cookie not found. Please login or check store path."
-            )
+            raise click.ClickException("Persisted Overleaf cookie not found. Please login or check store path.")
 
         with open(cookie_path, 'rb') as f:
             store = pickle.load(f)
@@ -160,8 +164,7 @@ def main(ctx, local, remote, project_name, cookie_path, sync_path, olignore_path
                 create_file_at_from=lambda name: write_file(
                     name, zip_file.read(name)),
                 from_exists_in_to=lambda name: name in zip_file.namelist(),
-                from_equal_to_to=lambda name: open(name, 'rb').read(
-                ) == zip_file.read(name),
+                from_equal_to_to=lambda name: open(name, 'rb').read() == zip_file.read(name),
                 from_newer_than_to=lambda name: os.path.getmtime(name) > dateutil.
                 parser.isoparse(project["lastUpdated"]).timestamp(),
                 from_name="local",
