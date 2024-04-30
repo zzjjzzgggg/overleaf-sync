@@ -19,6 +19,8 @@ import urllib3
 from bs4 import BeautifulSoup
 from socketIO_client import SocketIO
 
+from olcesync.comm import *
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 PATH_SEP = "/"    # Use hardcoded path separator for both windows and posix system
@@ -93,8 +95,7 @@ class OverleafClient(object):
 
         # On a successful authentication the Overleaf API returns a new authenticated cookie.
         # If the cookie is different than the cookie of the GET request the authentication was successful
-        if post_login.status_code == 200 and get_login.cookies[
-                "overleaf_session2"] != post_login.cookies["overleaf_session2"]:
+        if post_login.status_code == 200:
             self._cookie = post_login.cookies
 
             # Enrich cookie with GCLB cookie from GET request above
@@ -107,6 +108,10 @@ class OverleafClient(object):
                 }).get('content')
 
             return {"cookie": self._cookie, "csrf": self._csrf}
+
+    # Convert cookie from CookieJar to string
+    def get_cookie_str(self):
+        return "; ".join([f"{n}={self._cookie[n]}" for n in COOKIE_NAMES])
 
     def all_projects(self):
         """
@@ -195,18 +200,18 @@ class OverleafClient(object):
         project_infos = None
 
         # Callback function for the joinProject emitter
-        def set_project_infos(a, project_infos_dict, c, d):
+        def set_project_infos(project_infos_dict):
             # Set project_infos variable in outer scope
             nonlocal project_infos
-            project_infos = project_infos_dict
-
-        # Convert cookie from CookieJar to string
-        cookie = "sharelatex.sid={}".format(self._cookie["sharelatex.sid"])
+            project_infos = project_infos_dict.get("project", {})
 
         # Connect to Overleaf Socket.IO, send a time parameter and the cookies
         socket_io = SocketIO(self.BASE_URL,
-                             params={'t': int(time.time())},
-                             headers={'Cookie': cookie},
+                             params={
+                                 't': int(time.time()),
+                                 'projectId': project_id
+                             },
+                             headers={'Cookie': self.get_cookie_str()},
                              verify=False)
 
         # Wait until we connect to the socket
@@ -214,9 +219,9 @@ class OverleafClient(object):
         socket_io.wait_for_callbacks()
 
         # Send the joinProject event and receive the project infos
-        socket_io.emit('joinProject', {'project_id': project_id},
-                       set_project_infos)
-        socket_io.wait_for_callbacks()
+        socket_io.on('joinProjectResponse', set_project_infos)
+        while project_infos is None:
+            socket_io.wait(1)
 
         # Disconnect from the socket if still connected
         if socket_io.connected:

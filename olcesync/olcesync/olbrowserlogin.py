@@ -15,13 +15,7 @@ from PySide6.QtWebEngineCore import (QWebEnginePage, QWebEngineProfile,
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QApplication, QMainWindow
 
-# Where to get the CSRF Token and where to send the login request to
-# JS snippet to get the first link
-JAVASCRIPT_EXTRACT_PROJECT_URL = "document.getElementsByClassName('dash-cell-name')[1].firstChild.href"
-# JS snippet to extract the csrfToken
-JAVASCRIPT_CSRF_EXTRACTOR = "document.getElementsByName('ol-csrfToken')[0].content"
-# Name of the cookies we want to extract
-COOKIE_NAMES = ["sharelatex.sid"]
+from olcesync.comm import *
 
 
 def on_cert_error(e):
@@ -125,4 +119,4 @@ def login(server_ip):
 
 
 if __name__ == '__main__':
-    print(login("localhost"))
+    print(login("202.117.43.87"))

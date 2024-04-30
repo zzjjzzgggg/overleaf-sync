@@ -275,7 +275,6 @@ class OverleafClient(object):
                       data=data,
                       files=files)
 
-        # print(params, r.status_code, r.content)
         return r.status_code == str(200) and json.loads(r.content)["success"]
 
     def delete_file(self, project_id, project_infos, file_name):
