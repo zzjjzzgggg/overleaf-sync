@@ -8,6 +8,7 @@
 # License: MIT
 # Version: 1.2.0
 ##################################################
+import requests as reqs
 from PySide6.QtCore import QCoreApplication, QUrl
 from PySide6.QtWebEngineCore import (QWebEnginePage, QWebEngineProfile,
                                      QWebEngineSettings)
@@ -17,6 +18,7 @@ from PySide6.QtWidgets import QApplication, QMainWindow
 # Where to get the CSRF Token and where to send the login request to
 LOGIN_URL = "https://www.overleaf.com/login"
 PROJECT_URL = "https://www.overleaf.com/project"    # The dashboard URL
+SOCKET_URL = "https://www.overleaf.com/socket.io/socket.io.js"
 # JS snippet to get the first link
 JAVASCRIPT_EXTRACT_PROJECT_URL = "document.getElementsByClassName('dash-cell-name')[1].firstChild.href"
 # JS snippet to extract the csrfToken
@@ -94,9 +96,7 @@ class OlBrowserLoginWindow(QMainWindow):
 
 def login():
     from PySide6.QtCore import QLoggingCategory
-    QLoggingCategory.setFilterRules('''\
-    qt.webenginecontext.info=false
-    ''')
+    QLoggingCategory.setFilterRules('qt.webenginecontext.info=false')
 
     app = QApplication([])
     ol_browser_login_window = OlBrowserLoginWindow()
@@ -106,10 +106,16 @@ def login():
     if not ol_browser_login_window.login_success:
         return None
 
-    return {
+    dat = {
         "cookie": ol_browser_login_window.cookies,
         "csrf": ol_browser_login_window.csrf
     }
+
+    # requesting GCLB
+    r = reqs.get(SOCKET_URL, cookies=dat["cookie"])
+    dat["cookie"]['GCLB'] = r.cookies['GCLB']    # type: ignore
+
+    return dat
 
 
 if __name__ == '__main__':

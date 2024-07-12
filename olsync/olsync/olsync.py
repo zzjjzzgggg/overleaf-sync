@@ -84,8 +84,7 @@ def main(ctx, local, remote, project_name, cookie_path, sync_path, olignore_path
     if ctx.invoked_subcommand is None:
         if not os.path.isfile(cookie_path):
             raise click.ClickException(
-                "Persisted Overleaf cookie not found. Please login or check store path."
-            )
+                "Cookie not found. Please login or check store path.")
 
         with open(cookie_path, 'rb') as f:
             store = pickle.load(f)
@@ -173,8 +172,7 @@ def main(ctx, local, remote, project_name, cookie_path, sync_path, olignore_path
               help="Enable extended error logging.")
 def login(cookie_path, verbose):
     if os.path.isfile(cookie_path) and not click.confirm(
-            'Persisted Overleaf cookie already exist. Do you want to override it?'
-    ):
+            'Cookie already exist. Do you want to override it?'):
         return
     click.clear()
     execute_action(
@@ -288,6 +286,7 @@ def login_handler(path):
     store = olbrowserlogin.login()
     if store is None:
         return False
+
     with open(path, 'wb+') as f:
         pickle.dump(store, f)
     return True

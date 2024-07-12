@@ -59,45 +59,8 @@ class OverleafClient(object):
                     yield p
 
     def __init__(self, cookie=None, csrf=None):
-        self._cookie = cookie    # Store the cookie for authenticated requests
-        self._csrf = csrf    # Store the CSRF token since it is needed for some requests
-
-    def login(self, username, password):
-        """
-        WARNING - DEPRECATED - Not working as Overleaf introduced captchas
-        Login to the Overleaf Service with a username and a password
-        Params: username, password
-        Returns: Dict of cookie and CSRF
-        """
-
-        get_login = reqs.get(LOGIN_URL)
-        self._csrf = BeautifulSoup(get_login.content,
-                                   'html.parser').find('input', {
-                                       'name': '_csrf'
-                                   }).get('value')
-        login_json = {
-            "_csrf": self._csrf,
-            "email": username,
-            "password": password
-        }
-        post_login = reqs.post(LOGIN_URL,
-                               json=login_json,
-                               cookies=get_login.cookies)
-
-        # On a successful authentication the Overleaf API returns a new authenticated cookie.
-        # If the cookie is different than the cookie of the GET request the authentication was successful
-        if post_login.status_code == 200 and get_login.cookies[
-                "overleaf_session2"] != post_login.cookies["overleaf_session2"]:
-            self._cookie = post_login.cookies
-
-            # Enrich cookie with GCLB cookie from GET request above
-            self._cookie['GCLB'] = get_login.cookies['GCLB']
-            # CSRF changes after making the login request, new CSRF token will be on the projects page
-            projects_page = reqs.get(PROJECT_URL, cookies=self._cookie)
-            self._csrf = BeautifulSoup(projects_page.content, 'html.parser').find('meta', {'name': 'ol-csrfToken'}) \
-                .get('content')
-
-            return {"cookie": self._cookie, "csrf": self._csrf}
+        self._cookie = cookie
+        self._csrf = csrf
 
     def all_projects(self):
         """
@@ -107,10 +70,11 @@ class OverleafClient(object):
         projects_page = reqs.get(PROJECT_URL, cookies=self._cookie)
 
         json_content = json.loads(
-            BeautifulSoup(projects_page.content,
-                          'html.parser').find('meta', {
-                              'name': 'ol-prefetchedProjectsBlob'
-                          }).get('content'))
+            BeautifulSoup(
+                projects_page.content,    # type: ignore
+                'html.parser').find('meta', {
+                    'name': 'ol-prefetchedProjectsBlob'
+                }).get('content'))    # type: ignore
 
         return list(OverleafClient.filter_projects(json_content['projects']))
 
@@ -178,6 +142,7 @@ class OverleafClient(object):
 
         Returns: project details
         """
+
         project_infos = None
 
         # Callback function for the joinProject emitter
