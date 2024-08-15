@@ -112,8 +112,8 @@ def login():
     }
 
     # requesting GCLB
-    r = reqs.get(SOCKET_URL, cookies=dat["cookie"])
-    dat["cookie"]['GCLB'] = r.cookies['GCLB']    # type: ignore
+    # r = reqs.get(SOCKET_URL, cookies=dat["cookie"])
+    # dat["cookie"]['GCLB'] = r.cookies['GCLB']    # type: ignore
 
     return dat
 
