@@ -111,8 +111,10 @@ def login():
         "csrf": ol_browser_login_window.csrf
     }
 
-    # requesting GCLB
+    # print(dat)
+    # # requesting GCLB
     # r = reqs.get(SOCKET_URL, cookies=dat["cookie"])
+    # print(r.cookies)
     # dat["cookie"]['GCLB'] = r.cookies['GCLB']    # type: ignore
 
     return dat

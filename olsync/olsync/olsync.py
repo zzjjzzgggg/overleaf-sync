@@ -435,14 +435,21 @@ def execute_action(action,
                    progress_message,
                    success_message,
                    fail_message,
-                   verbose_error_logging=False):
+                   verbose_error_logging=False,
+                   tries=3):
+    rst = None
+    success = False
+    num_try = 0
     with yaspin(text=progress_message, color="green") as spinner:
-        try:
-            success = action()
-        except:
-            if verbose_error_logging:
-                print(traceback.format_exc())
-            success = False
+        while not success and num_try < tries:
+            try:
+                rst = action()
+                success = True
+            except:
+                if verbose_error_logging:
+                    print(traceback.format_exc())
+                num_try += 1
+                print("\nFailed, will try again ({}/{})".format(num_try, tries))
 
         if success:
             spinner.write(success_message)
@@ -450,8 +457,7 @@ def execute_action(action,
         else:
             spinner.fail("💥 ")
             raise click.ClickException(fail_message)
-
-        return success
+    return rst
 
 
 def olignore_keep_list(olignore_path):
