@@ -28,3 +28,6 @@ keywords = "overleaf sync latex tex"
 
 [tool.flit.scripts]
 ols = "olsync.olsync:main"
+
+[tool.yapf]
+column_limit = 100
