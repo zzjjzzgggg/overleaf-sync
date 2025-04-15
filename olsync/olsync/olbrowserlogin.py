@@ -17,7 +17,7 @@ from PySide6.QtWidgets import QApplication, QMainWindow
 
 # Where to get the CSRF Token and where to send the login request to
 LOGIN_URL = "https://www.overleaf.com/login"
-PROJECT_URL = "https://www.overleaf.com/project"    # The dashboard URL
+PROJECT_URL = "https://www.overleaf.com/project"  # The dashboard URL
 SOCKET_URL = "https://www.overleaf.com/socket.io/socket.io.js"
 # JS snippet to get the first link
 JAVASCRIPT_EXTRACT_PROJECT_URL = "document.getElementsByClassName('dash-cell-name')[1].firstChild.href"
@@ -45,11 +45,9 @@ class OlBrowserLoginWindow(QMainWindow):
         self.profile = QWebEngineProfile(self.webview)
         self.cookie_store = self.profile.cookieStore()
         self.cookie_store.cookieAdded.connect(self.handle_cookie_added)
-        self.profile.setPersistentCookiesPolicy(
-            QWebEngineProfile.NoPersistentCookies)
+        self.profile.setPersistentCookiesPolicy(QWebEngineProfile.NoPersistentCookies)
 
-        self.profile.settings().setAttribute(QWebEngineSettings.JavascriptEnabled,
-                                             True)
+        self.profile.settings().setAttribute(QWebEngineSettings.JavascriptEnabled, True)
 
         webpage = QWebEnginePage(self.profile, self)
         self.webview.setPage(webpage)
@@ -69,12 +67,11 @@ class OlBrowserLoginWindow(QMainWindow):
                 QCoreApplication.quit()
 
             self.webview.load(QUrl.fromUserInput(result))
-            self.webview.loadFinished.connect(lambda x: self.webview.page(
-            ).runJavaScript(JAVASCRIPT_CSRF_EXTRACTOR, 0, callback))
+            self.webview.loadFinished.connect(
+                lambda x: self.webview.page().runJavaScript(JAVASCRIPT_CSRF_EXTRACTOR, 0, callback))
 
         if self.webview.url().toString() == PROJECT_URL:
-            self.webview.page().runJavaScript(JAVASCRIPT_EXTRACT_PROJECT_URL, 0,
-                                              callback)
+            self.webview.page().runJavaScript(JAVASCRIPT_EXTRACT_PROJECT_URL, 0, callback)
 
     def handle_cookie_added(self, cookie):
         cookie_name = cookie.name().data().decode('utf-8')
@@ -106,10 +103,7 @@ def login():
     if not ol_browser_login_window.login_success:
         return None
 
-    dat = {
-        "cookie": ol_browser_login_window.cookies,
-        "csrf": ol_browser_login_window.csrf
-    }
+    dat = {"cookie": ol_browser_login_window.cookies, "csrf": ol_browser_login_window.csrf}
 
     # print(dat)
     # # requesting GCLB
