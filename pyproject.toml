@@ -30,4 +30,4 @@ keywords = "overleaf sync latex tex"
 ols = "olsync.olsync:main"
 
 [tool.yapf]
-column_limit = 100
+column_limit = 82

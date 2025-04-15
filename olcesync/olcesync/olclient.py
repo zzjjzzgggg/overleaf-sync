@@ -23,7 +23,7 @@ from olcesync.comm import *
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-PATH_SEP = "/"    # Use hardcoded path separator for both windows and posix system
+PATH_SEP = "/"  # Use hardcoded path separator for both windows and posix system
 
 
 def search_dic(name, dic):
@@ -55,8 +55,8 @@ class OverleafClient(object):
                     yield p
 
     def __init__(self, server_ip, cookie=None, csrf=None):
-        self._cookie = cookie    # Store the cookie for authenticated requests
-        self._csrf = csrf    # Store the CSRF token since it is needed for some requests
+        self._cookie = cookie
+        self._csrf = csrf
 
         self.BASE_URL = "https://" + server_ip
         self.LOGIN_URL = self.BASE_URL + "/login"
@@ -93,14 +93,10 @@ class OverleafClient(object):
                                cookies=get_login.cookies,
                                verify=False)
 
-        # On a successful authentication the Overleaf API returns a new authenticated cookie.
-        # If the cookie is different than the cookie of the GET request the authentication was successful
         if post_login.status_code == 200:
             self._cookie = post_login.cookies
 
-            # Enrich cookie with GCLB cookie from GET request above
             self._cookie['GCLB'] = get_login.cookies['GCLB']
-            # CSRF changes after making the login request, new CSRF token will be on the projects page
             projects_page = reqs.get(self.PROJECT_URL, cookies=self._cookie)
             self._csrf = BeautifulSoup(projects_page.content, 'html.parser').find(
                 'meta', {
@@ -223,9 +219,7 @@ class OverleafClient(object):
         while project_infos is None:
             socket_io.wait(1)
 
-        # Disconnect from the socket if still connected
-        if socket_io.connected:
-            socket_io.disconnect()
+        if socket_io.connected: socket_io.disconnect()
 
         return project_infos
 
@@ -258,7 +252,7 @@ class OverleafClient(object):
             for local_folder in local_folders:
                 exists_on_remote = False
                 for remote_folder in current_overleaf_folder:
-                    # Check if the folder exists on remote, continue with the new folder structure
+                    # Check if the folder exists on remote
                     if local_folder.lower() == remote_folder['name'].lower():
                         exists_on_remote = True
                         folder_id = remote_folder['_id']
@@ -328,7 +322,7 @@ class OverleafClient(object):
                     print("Local folder {} does not exist in remote!".format(
                         items[i]))
                     return False
-        else:    # File is in root folder
+        else:  # File is in root folder
             remote_folder = project_infos['rootFolder'][0]
             file_id, file_type = search_dic(file_name, remote_folder)
 

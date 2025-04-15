@@ -35,8 +35,14 @@ except ImportError:
 
 
 @click.group(invoke_without_command=True)
-@click.option('--push', 'push', is_flag=True, help="Push local project files to Overleaf only.")
-@click.option('--pull', 'pull', is_flag=True, help="Pull remote project files to local only.")
+@click.option('--push',
+              'push',
+              is_flag=True,
+              help="Push local project files to Overleaf only.")
+@click.option('--pull',
+              'pull',
+              is_flag=True,
+              help="Pull remote project files to local only.")
 @click.option('-n',
               '--name',
               'project_name',
@@ -58,24 +64,34 @@ except ImportError:
               default=".",
               type=click.Path(exists=True),
               help="Path of the project to sync.")
-@click.option(
-    '-i',
-    '--olignore',
-    'olignore_path',
-    default=".olignore",
-    type=click.Path(exists=False),
-    help=
-    "Path to the .olignore file relative to sync path (ignored if syncing from remote to local). See "
-    "fnmatch / unix filename pattern matching for information on how to use it.")
-@click.option('-v', '--verbose', 'verbose', is_flag=True, help="Enable extended error logging.")
+@click.option('-i',
+              '--olignore',
+              'olignore_path',
+              default=".olignore",
+              type=click.Path(exists=False),
+              help="Path to the .olignore file.")
+@click.option('-v',
+              '--verbose',
+              'verbose',
+              is_flag=True,
+              help="Enable extended error logging.")
 @click.version_option(package_name='overleaf-sync')
 @click.pass_context
-def main(ctx, push, pull, project_name, cookie_path, hash_path, sync_path, olignore_path, verbose):
+def main(ctx, push, pull, project_name, cookie_path, hash_path, sync_path,
+         olignore_path, verbose):
     tm_tick = time.time()
     if ctx.invoked_subcommand is not None: return
 
+    # try to find the root dir of the project
+    for _ in range(5):
+        if not os.path.isfile(cookie_path):
+            os.chdir('..')
+            print("Current directory:", os.getcwd())
+        else:
+            break
+
     if not os.path.isfile(cookie_path):
-        raise click.ClickException("Cookie not found. Please login or check store path.")
+        raise click.ClickException("Cookie not found. Please login.")
 
     with open(cookie_path, 'rb') as f:
         store = pickle.load(f)
@@ -87,21 +103,24 @@ def main(ctx, push, pull, project_name, cookie_path, hash_path, sync_path, olign
 
     project_name = get_project_name(project_name)
     print("Using project name:", project_name)
-    project = execute_action(lambda: client.get_project(project_name), "Querying project",
-                             "Project queried successfully.", "Project could not be queried.",
-                             verbose)
+
+    project = execute_action(lambda: client.get_project(project_name),
+                             "Querying project", "Project queried successfully.",
+                             "Project could not be queried.", verbose)
 
     if project is None: return
-    remote_timestamp = dateutil.parser.isoparse(project["lastUpdated"]).timestamp()
+    remote_timestamp = dateutil.parser.isoparse(
+        project["lastUpdated"]).timestamp()
 
     project_info = execute_action(lambda: client.get_project_infos(project["id"]),
                                   "Querying project details",
                                   "Project details queried successfully.",
-                                  "Project details could not be queried.", verbose)
+                                  "Project details could not be queried.",
+                                  verbose)
 
     zip_file = execute_action(
-        lambda: zipfile.ZipFile(io.BytesIO(client.download_project(project["id"]))),
-        "Downloading project", "Project downloaded successfully.",
+        lambda: zipfile.ZipFile(io.BytesIO(client.download_project(project[
+            "id"]))), "Downloading project", "Project downloaded successfully.",
         "Project could not be downloaded.", verbose)
 
     if zip_file is None: return
@@ -121,20 +140,24 @@ def main(ctx, push, pull, project_name, cookie_path, hash_path, sync_path, olign
         # some remote files may be updated or not, decide by hash
         local_to_update = []
         for file_name in remote_files & local_files:
-            pre_remote_hash = hash_table[file_name][0] if file_name in hash_table else None
+            pre_remote_hash = hash_table[file_name][
+                0] if file_name in hash_table else None
             remote_hash = hashlib.sha1(zip_file.read(file_name)).hexdigest()
             local_hash = hashlib.sha1(open(file_name, 'rb').read()).hexdigest()
             local_timestamp = os.path.getmtime(file_name)
             if pre_remote_hash != remote_hash:  # remote update
-                local_to_update.append((file_name, remote_hash, local_timestamp - remote_timestamp))
+                local_to_update.append(
+                    (file_name, remote_hash, local_timestamp - remote_timestamp))
 
         sync_func(files_to_add=remote_files - local_files,
                   files_to_update=local_to_update,
                   files_to_delete=local_files - remote_files,
-                  create_file_at_target=lambda name: write_file(name, zip_file.read(name)),
+                  create_file_at_target=lambda name: write_file(
+                      name, zip_file.read(name)),
                   delete_file_at_target=lambda name: delete_file(name),
                   create_file_at_source=lambda name: client.upload_file(
-                      project["id"], project_info, name, os.path.getsize(name), open(name, 'rb')),
+                      project["id"], project_info, name, os.path.getsize(name),
+                      open(name, 'rb')),
                   hash_table=hash_table,
                   source="remote",
                   target="local",
@@ -145,21 +168,25 @@ def main(ctx, push, pull, project_name, cookie_path, hash_path, sync_path, olign
         # some local files may be updated or not, decide by mtime
         remote_to_update = []
         for file_name in remote_files & local_files:
-            pre_local_timestamp = hash_table[file_name][1] if file_name in hash_table else 0
+            pre_local_timestamp = hash_table[file_name][
+                1] if file_name in hash_table else 0
             local_timestamp = os.path.getmtime(file_name)
             remote_hash = hashlib.sha1(zip_file.read(file_name)).hexdigest()
             local_hash = hashlib.sha1(open(file_name, 'rb').read()).hexdigest()
             if pre_local_timestamp < local_timestamp:  # local update
-                remote_to_update.append((file_name, local_hash, remote_timestamp - local_timestamp))
+                remote_to_update.append(
+                    (file_name, local_hash, remote_timestamp - local_timestamp))
 
         sync_func(files_to_add=local_files - remote_files,
                   files_to_update=remote_to_update,
                   files_to_delete=remote_files - local_files,
                   create_file_at_target=lambda name: client.upload_file(
-                      project["id"], project_info, name, os.path.getsize(name), open(name, 'rb')),
+                      project["id"], project_info, name, os.path.getsize(name),
+                      open(name, 'rb')),
                   delete_file_at_target=lambda name: client.delete_file(
                       project["id"], project_info, name),
-                  create_file_at_source=lambda name: write_file(name, zip_file.read(name)),
+                  create_file_at_source=lambda name: write_file(
+                      name, zip_file.read(name)),
                   hash_table=hash_table,
                   source="local",
                   target="remote",
@@ -179,14 +206,19 @@ def main(ctx, push, pull, project_name, cookie_path, hash_path, sync_path, olign
               default=".olauth",
               type=click.Path(exists=False),
               help="Path to store the persisted Overleaf cookie.")
-@click.option('-v', '--verbose', 'verbose', is_flag=True, help="Enable extended error logging.")
+@click.option('-v',
+              '--verbose',
+              'verbose',
+              is_flag=True,
+              help="Enable extended error logging.")
 def login(cookie_path, verbose):
-    if os.path.isfile(
-            cookie_path) and not click.confirm('Cookie already exist. Do you want to override it?'):
+    if os.path.isfile(cookie_path) and not click.confirm(
+            'Cookie already exist. Do you want to override it?'):
         return
     click.clear()
     execute_action(
-        lambda: login_handler(cookie_path), "Login", "Login successful. Cookie persisted as `" +
+        lambda: login_handler(cookie_path), "Login",
+        "Login successful. Cookie persisted as `" +
         click.format_filename(cookie_path) + "`. You may now sync your project.",
         "Login failed. Please try again.", verbose)
 
@@ -197,12 +229,18 @@ def login(cookie_path, verbose):
               default=".olauth",
               type=click.Path(exists=False),
               help="Relative path to load the persisted Overleaf cookie.")
-@click.option('-v', '--verbose', 'verbose', is_flag=True, help="Enable extended error logging.")
+@click.option('-v',
+              '--verbose',
+              'verbose',
+              is_flag=True,
+              help="Enable extended error logging.")
 def list_projects(cookie_path, verbose):
 
     def query_projects():
         for index, p in enumerate(
-                sorted(client.all_projects(), key=lambda x: x['lastUpdated'], reverse=True)):
+                sorted(client.all_projects(),
+                       key=lambda x: x['lastUpdated'],
+                       reverse=True)):
             if not index:
                 click.echo("\n")
             click.echo(
@@ -212,7 +250,8 @@ def list_projects(cookie_path, verbose):
 
     if not os.path.isfile(cookie_path):
         raise click.ClickException(
-            "Persisted Overleaf cookie not found. Please login or check store path.")
+            "Persisted Overleaf cookie not found. Please login or check store path."
+        )
 
     with open(cookie_path, 'rb') as f:
         store = pickle.load(f)
@@ -220,7 +259,8 @@ def list_projects(cookie_path, verbose):
     client = OverleafClient(store["cookie"], store["csrf"])
 
     click.clear()
-    execute_action(query_projects, "Querying all projects", "Querying all projects successful.",
+    execute_action(query_projects, "Querying all projects",
+                   "Querying all projects successful.",
                    "Querying all projects failed. Please try again.", verbose)
 
 
@@ -230,22 +270,32 @@ def list_projects(cookie_path, verbose):
     '--name',
     'project_name',
     default="",
-    help="Specify the Overleaf project name instead of the default name of the sync directory.")
-@click.option('--download-path', 'download_path', default=".", type=click.Path(exists=True))
+    help=
+    "Specify the Overleaf project name instead of the default name of the sync directory."
+)
+@click.option('--download-path',
+              'download_path',
+              default=".",
+              type=click.Path(exists=True))
 @click.option('--store-path',
               'cookie_path',
               default=".olauth",
               type=click.Path(exists=False),
               help="Relative path to load the persisted Overleaf cookie.")
-@click.option('-v', '--verbose', 'verbose', is_flag=True, help="Enable extended error logging.")
+@click.option('-v',
+              '--verbose',
+              'verbose',
+              is_flag=True,
+              help="Enable extended error logging.")
 def download_pdf(project_name, download_path, cookie_path, verbose):
 
     def download_project_pdf():
         nonlocal project_name
         project_name = project_name or os.path.basename(os.getcwd())
-        project = execute_action(lambda: client.get_project(project_name), "Querying project",
-                                 "Project queried successfully.", "Project could not be queried.",
-                                 verbose)
+        project = execute_action(lambda: client.get_project(project_name),
+                                 "Querying project",
+                                 "Project queried successfully.",
+                                 "Project could not be queried.", verbose)
 
         file_name, content = client.download_pdf(project["id"])  #type:ignore
 
@@ -300,15 +350,17 @@ def write_file(path, content):
         f.write(content)
 
 
-def sync_func(files_to_add, files_to_update, files_to_delete, create_file_at_target,
-              delete_file_at_target, create_file_at_source, hash_table, source, target, verbose):
+def sync_func(files_to_add, files_to_update, files_to_delete,
+              create_file_at_target, delete_file_at_target, create_file_at_source,
+              hash_table, source, target, verbose):
     update_list = []
     not_sync_list = []
     for name, source_hash, dt, in files_to_update:
         if dt > 0 and not click.confirm(
-                "\n[Warning]: your {} file <{}> is likely {:.2f} seconds newer than {}."
-                "\nContinue to overwrite with probabily an older version?".format(
-                    target, name, dt, source)):
+                "\n[Warning]: Your {} file <{}> is likely {:.1f} seconds newer than {}."
+                "\nContinue to overwrite with probabily an old version?"
+                "\nNote that remote file update time is actually the remote project update time which may be incorrect."
+                .format(target, name, dt, source)):
             not_sync_list.append(name)
         else:
             update_list.append((name, source_hash))
@@ -319,7 +371,8 @@ def sync_func(files_to_add, files_to_update, files_to_delete, create_file_at_tar
     for name in files_to_delete:
         delete_choice = click.prompt(
             "\n[Warning]: file {} does not exist on {} anymore (but still exists on {})."
-            "\nShould the file be [d]eleted, [r]estored or [i]gnored?".format(name, source, target),
+            "\nShould the file be [d]eleted, [r]estored or [i]gnored?".format(
+                name, source, target),
             default="i",
             type=click.Choice(['d', 'r', 'i']))
         if delete_choice == "d":
@@ -329,7 +382,8 @@ def sync_func(files_to_add, files_to_update, files_to_delete, create_file_at_tar
         elif delete_choice == "i":
             not_restored_list.append(name)
 
-    if files_to_add: click.echo("\n[NEW] Following new files created on {}:".format(target))
+    if files_to_add:
+        click.echo("\n[NEW] Following new files created on {}:".format(target))
     for name in files_to_add:
         click.echo("\t%s" % name)
         try:
@@ -341,9 +395,11 @@ def sync_func(files_to_add, files_to_update, files_to_delete, create_file_at_tar
         except:
             if verbose: print(traceback.format_exc())
             raise click.ClickException(
-                "\n[ERROR] An error occurred while creating new files on {}".format(target))
+                "\n[ERROR] An error occurred while creating new files on {}".
+                format(target))
 
-    if update_list: click.echo("\n[NEW] Following files updated on {}:".format(target))
+    if update_list:
+        click.echo("\n[NEW] Following files updated on {}:".format(target))
     for name, hash in update_list:
         click.echo("\t%s" % name)
         try:
@@ -352,9 +408,11 @@ def sync_func(files_to_add, files_to_update, files_to_delete, create_file_at_tar
         except:
             if verbose: print(traceback.format_exc())
             raise click.ClickException(
-                "\n[ERROR] An error occurred while creating new files on {}".format(target))
+                "\n[ERROR] An error occurred while creating new files on {}".
+                format(target))
 
-    if delete_list: click.echo("\n[DELETE] Following files deleted on {}:".format(target))
+    if delete_list:
+        click.echo("\n[DELETE] Following files deleted on {}:".format(target))
     for name in delete_list:
         click.echo("\t%s" % name)
         try:
@@ -363,9 +421,11 @@ def sync_func(files_to_add, files_to_update, files_to_delete, create_file_at_tar
         except:
             if verbose: print(traceback.format_exc())
             raise click.ClickException(
-                "\n[ERROR] An error occurred while delete file on {}".format(target))
+                "\n[ERROR] An error occurred while delete file on {}".format(
+                    target))
 
-    if restore_list: click.echo("\n[NEW] Following new files restored on {}:".format(source))
+    if restore_list:
+        click.echo("\n[NEW] Following new files restored on {}:".format(source))
     for name in restore_list:
         click.echo("\t%s" % name)
         try:
@@ -377,17 +437,20 @@ def sync_func(files_to_add, files_to_update, files_to_delete, create_file_at_tar
         except:
             if verbose: print(traceback.format_exc())
             raise click.ClickException(
-                "\n[ERROR] An error occurred while creating new files on [%s]" % source)
+                "\n[ERROR] An error occurred while creating new files on [%s]" %
+                source)
 
     if not_sync_list:
-        click.echo("\n[SKIP] Following files on {} have not been synced to {}".format(
-            source, target))
+        click.echo(
+            "\n[SKIP] Following files on {} have not been synced to {}".format(
+                source, target))
     for name in not_sync_list:
         click.echo("\t%s" % name)
 
     if not_restored_list:
-        click.echo("\n[SKIP] Following files on {} have not been synced to {}".format(
-            target, source))
+        click.echo(
+            "\n[SKIP] Following files on {} have not been synced to {}".format(
+                target, source))
     for name in not_restored_list:
         click.echo("\t%s" % name)
 
@@ -439,10 +502,12 @@ def olignore_keep_list(olignore_path):
             ignore_pattern = f.read().splitlines()
 
         keep_list = [
-            f for f in files if not any(fnmatch.fnmatch(f, ignore) for ignore in ignore_pattern)
+            f for f in files
+            if not any(fnmatch.fnmatch(f, ignore) for ignore in ignore_pattern)
         ]
 
-    keep_list = set(Path(item).as_posix() for item in keep_list if not os.path.isdir(item))
+    keep_list = set(
+        Path(item).as_posix() for item in keep_list if not os.path.isdir(item))
     return keep_list
 
 
