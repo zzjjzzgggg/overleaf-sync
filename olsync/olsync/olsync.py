@@ -1,14 +1,3 @@
-"""Overleaf Two-Way Sync Tool"""
-##################################################
-# MIT License
-##################################################
-# File: olsync.py
-# Description: Overleaf Two-Way Sync
-# Author: Moritz Glöckl
-# License: MIT
-# Version: 1.2.0
-##################################################
-
 import fnmatch
 import glob
 import io
@@ -464,7 +453,7 @@ def execute_action(action,
                    success_message,
                    fail_message,
                    verbose_error_logging=False,
-                   tries=3):
+                   tries=1):
     rst = None
     success = False
     num_try = 0

@@ -1,27 +1,17 @@
-"""Overleaf Client"""
-##################################################
-# MIT License
-##################################################
-# File: olclient.py
-# Description: Overleaf API Wrapper
-# Author: Moritz Glöckl
-# License: MIT
-# Version: 1.2.0
-##################################################
-
 import json
 import time
 
 import requests as reqs
 from bs4 import BeautifulSoup
-from socketIO_client import SocketIO
+# from socketIO_client import SocketIO
+import websocket
 
 # Where to get the CSRF Token and where to send the login request to
-LOGIN_URL = "https://www.overleaf.com/login"
-PROJECT_URL = "https://www.overleaf.com/project"  # The dashboard URL
-# The URL to download all the files in zip format
+DASHBOARD_URL = "https://www.overleaf.com/project"
+PROJECT_URL = "https://www.overleaf.com/project/{}"
+SOCKET_ID_URL = "https://www.overleaf.com/socket.io/1/?projectId={}"
+SOCKET_URL = "wss://www.overleaf.com/socket.io/1/websocket/{}?projectId={}&esh=1&ssp=1"
 DOWNLOAD_URL = "https://www.overleaf.com/project/{}/download/zip"
-# UPLOAD_URL = "https://www.overleaf.com/project/{}/upload"  # The URL to upload files
 UPLOAD_URL = "https://www.overleaf.com/project/{}/upload"
 FOLDER_URL = "https://www.overleaf.com/project/{}/folder"  # The URL to create folders
 DELETE_URL = "https://www.overleaf.com/project/{}/{}/{}"  # The URL to delete files
@@ -66,7 +56,7 @@ class OverleafClient(object):
         Returns: List of project objects
 
         """
-        projects_page = reqs.get(PROJECT_URL, cookies=self._cookie)
+        projects_page = reqs.get(DASHBOARD_URL, cookies=self._cookie)
 
         json_content = json.loads(
             BeautifulSoup(
@@ -84,7 +74,7 @@ class OverleafClient(object):
         Returns: project object
         """
 
-        projects_page = reqs.get(PROJECT_URL, cookies=self._cookie)
+        projects_page = reqs.get(DASHBOARD_URL, cookies=self._cookie)
         json_content = json.loads(
             BeautifulSoup(projects_page.content,
                           'html.parser').find('meta', {
@@ -142,42 +132,47 @@ class OverleafClient(object):
         Returns: project details
         """
 
-        project_infos = None
+        project_info = None
 
         # Callback function for the joinProject emitter
         def set_project_infos(project_infos_dict):
-            # Set project_infos variable in outer scope
-            nonlocal project_infos
-            project_infos = project_infos_dict.get("project", {})
+            # Set project_info variable in outer scope
+            nonlocal project_info
+            project_info = project_infos_dict.get("project", {})
 
         # Convert cookie from CookieJar to string
         cookie = "GCLB={}; overleaf_session2={}".format(
             self._cookie["GCLB"], self._cookie["overleaf_session2"])
 
-        # Connect to Overleaf Socket.IO, send a time parameter and the cookies
-        socket_io = SocketIO(BASE_URL,
-                             params={
-                                 't': int(time.time()),
-                                 'projectId': project_id
-                             },
-                             headers={'Cookie': cookie})
+        project_url = PROJECT_URL.format(project_id)
+        # r = reqs.get(project_url, cookies=self._cookie)
 
-        # Wait until we connect to the socket
-        socket_io.on('connect', lambda: None)
-        socket_io.wait_for_callbacks()
+        # print(r.cookies)
 
-        # Send the joinProject event and receive the project infos
-        socket_io.on('joinProjectResponse', set_project_infos)
-        while project_infos is None:
-            socket_io.wait(1)
+        url = SOCKET_ID_URL.format(project_id)
+        socket_page = reqs.get(url,
+                               cookies=self._cookie,
+                               headers={"Referer": project_url})
+        idx = socket_page.text.find(":")
+        socket_str = socket_page.text[:idx]
 
-        # Disconnect from the socket if still connected
-        if socket_io.connected:
-            socket_io.disconnect()
+        # websocket.enableTrace(True)
+        ws = websocket.WebSocket()
+        ws.connect(SOCKET_URL.format(socket_str, project_id),
+                   origin="https://www.overleaf.com",
+                   cookie=cookie,
+                   host="www.overleaf.com")
+        ws.recv()
+        ws.send("joinProjectResponse")
+        response = ws.recv()
+        ws.close()
 
-        return project_infos
+        idx = response.find("{")
+        project_info = json.loads(response[idx:])['args'][0]['project']
 
-    def upload_file(self, project_id, project_infos, file_name, file_size, file):
+        return project_info
+
+    def upload_file(self, project_id, project_info, file_name, file_size, file):
         """
         Upload a file to the project
 
@@ -191,7 +186,7 @@ class OverleafClient(object):
         """
 
         # Set the folder_id to the id of the root folder
-        folder_id = project_infos['rootFolder'][0]['_id']
+        folder_id = project_info['rootFolder'][0]['_id']
 
         only_file_name = file_name
 
@@ -201,7 +196,7 @@ class OverleafClient(object):
             items = file_name.split(PATH_SEP)
             local_folders, only_file_name = items[:-1], items[-1]
             # Set the current remote folder
-            current_overleaf_folder = project_infos['rootFolder'][0]['folders']
+            current_overleaf_folder = project_info['rootFolder'][0]['folders']
 
             for local_folder in local_folders:
                 exists_on_remote = False
@@ -241,7 +236,7 @@ class OverleafClient(object):
 
         return r.status_code == str(200) and json.loads(r.content)["success"]
 
-    def delete_file(self, project_id, project_infos, file_name):
+    def delete_file(self, project_id, project_info, file_name):
         """
         Deletes a project's file
 
@@ -258,7 +253,7 @@ class OverleafClient(object):
             items = file_name.split(PATH_SEP)
             dir_depth = len(items) - 1
             only_file_name = items[-1]
-            current_overleaf_folder = project_infos['rootFolder'][0]['folders']
+            current_overleaf_folder = project_info['rootFolder'][0]['folders']
             for i in range(dir_depth):
                 success = False
                 for remote_folder in current_overleaf_folder:
@@ -275,7 +270,7 @@ class OverleafClient(object):
                         items[i]))
                     return False
         else:  # File is in root folder
-            remote_folder = project_infos['rootFolder'][0]
+            remote_folder = project_info['rootFolder'][0]
             file_id, file_type = search_dic(file_name, remote_folder)
 
         # File not found!
