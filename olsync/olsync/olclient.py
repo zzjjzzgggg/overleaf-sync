@@ -3,7 +3,6 @@ import time
 
 import requests as reqs
 from bs4 import BeautifulSoup
-# from socketIO_client import SocketIO
 import websocket
 
 # Where to get the CSRF Token and where to send the login request to

@@ -18,7 +18,6 @@ from PySide6.QtWidgets import QApplication, QMainWindow
 # Where to get the CSRF Token and where to send the login request to
 LOGIN_URL = "https://www.overleaf.com/login"
 PROJECT_URL = "https://www.overleaf.com/project"  # The dashboard URL
-# SOCKET_URL = "https://www.overleaf.com/socket.io/socket.io.js"
 # JS snippet to get the first link
 JAVASCRIPT_EXTRACT_PROJECT_URL = "document.getElementsByClassName('dash-cell-name')[1].firstChild.href"
 # JS snippet to extract the csrfToken

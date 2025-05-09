@@ -453,7 +453,7 @@ def execute_action(action,
                    success_message,
                    fail_message,
                    verbose_error_logging=False,
-                   tries=1):
+                   tries=3):
     rst = None
     success = False
     num_try = 0
