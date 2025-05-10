@@ -37,6 +37,11 @@ except ImportError:
               'project_name',
               default="",
               help="Specify the project name explictly.")
+@click.option('--info-path',
+              'info_path',
+              default=".olinfo",
+              type=click.Path(exists=False),
+              help="Relative path to load the project info.")
 @click.option('--store-path',
               'cookie_path',
               default=".olauth",
@@ -47,12 +52,6 @@ except ImportError:
               default=".olhash",
               type=click.Path(exists=False),
               help="Relative path to load the persisted file hashes.")
-@click.option('-p',
-              '--path',
-              'sync_path',
-              default=".",
-              type=click.Path(exists=True),
-              help="Path of the project to sync.")
 @click.option('-i',
               '--olignore',
               'olignore_path',
@@ -66,7 +65,7 @@ except ImportError:
               help="Enable extended error logging.")
 @click.version_option(package_name='overleaf-sync')
 @click.pass_context
-def main(ctx, push, pull, project_name, cookie_path, hash_path, sync_path,
+def main(ctx, push, pull, project_name, info_path, cookie_path, hash_path,
          olignore_path, verbose):
     tm_tick = time.time()
     if ctx.invoked_subcommand is not None: return
@@ -87,10 +86,7 @@ def main(ctx, push, pull, project_name, cookie_path, hash_path, sync_path,
 
     client = OverleafClient(store["cookie"], store["csrf"])
 
-    # Change the current directory to the specified sync path
-    os.chdir(sync_path)
-
-    project_name = get_project_name(project_name)
+    project_name = get_project_name(project_name, info_path)
     print("Using project name:", project_name)
 
     project = execute_action(lambda: client.get_project(project_name),
@@ -145,8 +141,7 @@ def main(ctx, push, pull, project_name, cookie_path, hash_path, sync_path,
                       name, zip_file.read(name)),
                   delete_file_at_target=lambda name: delete_file(name),
                   create_file_at_source=lambda name: client.upload_file(
-                      project["id"], project_info, name, os.path.getsize(name),
-                      open(name, 'rb')),
+                      project["id"], project_info, name, open(name, 'rb')),
                   hash_table=hash_table,
                   source="remote",
                   target="local",
@@ -170,8 +165,7 @@ def main(ctx, push, pull, project_name, cookie_path, hash_path, sync_path,
                   files_to_update=remote_to_update,
                   files_to_delete=remote_files - local_files,
                   create_file_at_target=lambda name: client.upload_file(
-                      project["id"], project_info, name, os.path.getsize(name),
-                      open(name, 'rb')),
+                      project["id"], project_info, name, open(name, 'rb')),
                   delete_file_at_target=lambda name: client.delete_file(
                       project["id"], project_info, name),
                   create_file_at_source=lambda name: write_file(
@@ -500,18 +494,22 @@ def olignore_keep_list(olignore_path):
     return keep_list
 
 
-def get_project_name(project_name):
-    """If the project_name is provided, save it to file ".olproject_name". Otherwise, try to read it
-    from ".olproject_name". If the project_name is still empty, then use currrent folder name.
+def get_project_name(project_name, info_path):
+    """If the project_name is provided, save it to file info_path. Otherwise, try
+    to read it from info_path. If the project_name is still empty, then use
+    currrent folder name.
 
     """
     if project_name:
-        with open(".olproject_name", "w") as fw:
+        with open(info_path, "w") as fw:
             fw.write(project_name)
-    elif os.path.isfile(".olproject_name"):
-        with open(".olproject_name", 'r') as f:
+    elif os.path.isfile(info_path):
+        with open(info_path, 'r') as f:
             project_name = f.read().rstrip()
-    project_name = project_name or os.path.basename(os.getcwd())
+    else:
+        project_name = os.path.basename(os.getcwd())
+        with open(info_path, "w") as fw:
+            fw.write(project_name)
     return project_name
 
 

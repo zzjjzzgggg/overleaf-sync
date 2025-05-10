@@ -1,0 +1,20 @@
+{
+	"include": [
+		"olsync/olsync",
+		"olcesync/olcesync",
+	],
+    "exclude": [
+        "**/__pycache__",
+        "data",
+    ],
+    "defineConstant": {
+        "DEBUG": true
+    },
+    "reportMissingImports": "error",
+    "reportMissingTypeStubs": false,
+    "reportGeneralTypeIssues": false,
+    "reportPrivateImportUsage": false,
+    "reportOptionalMemberAccess": false,
+    "pythonVersion": "3.12",
+    "pythonPlatform": "Linux",
+}

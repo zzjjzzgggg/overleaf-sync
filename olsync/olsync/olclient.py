@@ -131,14 +131,6 @@ class OverleafClient(object):
         Returns: project details
         """
 
-        project_info = None
-
-        # Callback function for the joinProject emitter
-        def set_project_infos(project_infos_dict):
-            # Set project_info variable in outer scope
-            nonlocal project_info
-            project_info = project_infos_dict.get("project", {})
-
         # Convert cookie from CookieJar to string
         cookie = "GCLB={}; overleaf_session2={}".format(
             self._cookie["GCLB"], self._cookie["overleaf_session2"])
@@ -171,14 +163,13 @@ class OverleafClient(object):
 
         return project_info
 
-    def upload_file(self, project_id, project_info, file_name, file_size, file):
+    def upload_file(self, project_id, project_info, file_name, file):
         """
         Upload a file to the project
 
         Params:
         project_id: the id of the project
         file_name: how the file will be named
-        file_size: the size of the file in bytes
         file: the file itself
 
         Returns: True on success, False on fail
