@@ -223,7 +223,7 @@ class OverleafClient(object):
 
         return project_infos
 
-    def upload_file(self, project_id, project_infos, file_name, file_size, file):
+    def upload_file(self, project_id, project_infos, file_name, file):
         """
         Upload a file to the project
 

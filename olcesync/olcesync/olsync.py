@@ -162,8 +162,7 @@ def main(ctx, push, pull, project_name, cookie_path, hash_path, sync_path,
                       name, zip_file.read(name)),
                   delete_file_at_target=lambda name: delete_file(name),
                   create_file_at_source=lambda name: client.upload_file(
-                      project["id"], project_info, name, os.path.getsize(name),
-                      open(name, 'rb')),
+                      project["id"], project_info, name, open(name, 'rb')),
                   hash_table=hash_table,
                   source="remote",
                   target="local",
@@ -187,8 +186,7 @@ def main(ctx, push, pull, project_name, cookie_path, hash_path, sync_path,
                   files_to_update=remote_to_update,
                   files_to_delete=remote_files - local_files,
                   create_file_at_target=lambda name: client.upload_file(
-                      project["id"], project_info, name, os.path.getsize(name),
-                      open(name, 'rb')),
+                      project["id"], project_info, name, open(name, 'rb')),
                   delete_file_at_target=lambda name: client.delete_file(
                       project["id"], project_info, name),
                   create_file_at_source=lambda name: write_file(
