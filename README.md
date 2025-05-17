@@ -3,6 +3,17 @@ olsync is for overleaf.
 olcesync is for the community edition.
 Remember to click "accept all cookies" when logging in.
 
+For overleaf syncing:
+```
+ols --pull
+ols --push
+```
+
+For self-host overleaf CE:
+```
+olcs --pull
+olcs --push
+```
 
 # Overleaf-Sync
 ### Easy Overleaf Two-Way Synchronization
