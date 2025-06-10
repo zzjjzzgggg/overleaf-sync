@@ -19,7 +19,7 @@ import urllib3
 from bs4 import BeautifulSoup
 from socketIO_client import SocketIO
 
-from olcesync.comm import *
+COOKIE_NAMES = ["overleaf.sid"]
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 

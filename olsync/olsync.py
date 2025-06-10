@@ -1,6 +1,7 @@
 import fnmatch
 import glob
 import io
+import json
 import os
 import pickle
 import traceback
@@ -12,15 +13,6 @@ import hashlib
 import click
 import dateutil.parser
 from yaspin import yaspin
-
-try:
-    # Import for pip installation / wheel
-    import olsync.olbrowserlogin as olbrowserlogin
-    from olsync.olclient import OverleafClient
-except ImportError:
-    # Import for development
-    import olbrowserlogin  # type:ignore
-    from olclient import OverleafClient  # type:ignore
 
 
 @click.group(invoke_without_command=True)
@@ -37,11 +29,6 @@ except ImportError:
               'project_name',
               default="",
               help="Specify the project name explictly.")
-@click.option('--info-path',
-              'info_path',
-              default=".olinfo",
-              type=click.Path(exists=False),
-              help="Relative path to load the project info.")
 @click.option('--store-path',
               'cookie_path',
               default=".olauth",
@@ -65,8 +52,8 @@ except ImportError:
               help="Enable extended error logging.")
 @click.version_option(package_name='overleaf-sync')
 @click.pass_context
-def main(ctx, push, pull, project_name, info_path, cookie_path, hash_path,
-         olignore_path, verbose):
+def main(ctx, push, pull, project_name, cookie_path, hash_path, olignore_path,
+         verbose):
     tm_tick = time.time()
     if ctx.invoked_subcommand is not None: return
 
@@ -84,9 +71,14 @@ def main(ctx, push, pull, project_name, info_path, cookie_path, hash_path,
     with open(cookie_path, 'rb') as f:
         store = pickle.load(f)
 
-    client = OverleafClient(store["cookie"], store["csrf"])
+    client = get_client(store)
 
-    project_name = get_project_name(project_name, info_path)
+    if project_name: update_info(project=project_name)
+    else:
+        project_name = get_key("project")
+        if not project_name:
+            project_name = os.path.basename(os.getcwd())
+            update_info(project=project_name)
     print("Using project name:", project_name)
 
     project = execute_action(lambda: client.get_project(project_name),
@@ -183,7 +175,11 @@ def main(ctx, push, pull, project_name, info_path, cookie_path, hash_path,
     print("\nCost time {:.2f} seconds.".format(tm_cost))
 
 
-@main.command()
+@main.command(name='login')
+@click.option('-s',
+              '--server_ip',
+              default=None,
+              help="Server IP and if None then defaults to overleaf.com")
 @click.option('--path',
               'cookie_path',
               default=".olauth",
@@ -194,13 +190,14 @@ def main(ctx, push, pull, project_name, info_path, cookie_path, hash_path,
               'verbose',
               is_flag=True,
               help="Enable extended error logging.")
-def login(cookie_path, verbose):
+def login(server_ip, cookie_path, verbose):
+    update_info(server=server_ip)
     if os.path.isfile(cookie_path) and not click.confirm(
             'Cookie already exist. Do you want to override it?'):
         return
     click.clear()
     execute_action(
-        lambda: login_handler(cookie_path), "Login",
+        lambda: login_handler(server_ip, cookie_path), "Login",
         "Login successful. Cookie persisted as `" +
         click.format_filename(cookie_path) + "`. You may now sync your project.",
         "Login failed. Please try again.", verbose)
@@ -239,7 +236,7 @@ def list_projects(cookie_path, verbose):
     with open(cookie_path, 'rb') as f:
         store = pickle.load(f)
 
-    client = OverleafClient(store["cookie"], store["csrf"])
+    client = get_client(store)
 
     click.clear()
     execute_action(query_projects, "Querying all projects",
@@ -247,65 +244,14 @@ def list_projects(cookie_path, verbose):
                    "Querying all projects failed. Please try again.", verbose)
 
 
-@main.command(name='download')
-@click.option(
-    '-n',
-    '--name',
-    'project_name',
-    default="",
-    help=
-    "Specify the Overleaf project name instead of the default name of the sync directory."
-)
-@click.option('--download-path',
-              'download_path',
-              default=".",
-              type=click.Path(exists=True))
-@click.option('--store-path',
-              'cookie_path',
-              default=".olauth",
-              type=click.Path(exists=False),
-              help="Relative path to load the persisted Overleaf cookie.")
-@click.option('-v',
-              '--verbose',
-              'verbose',
-              is_flag=True,
-              help="Enable extended error logging.")
-def download_pdf(project_name, download_path, cookie_path, verbose):
+def login_handler(server, path):
+    if server is None:  # overleaf
+        import olbrowserlogin as olbrowserlogin
+        store = olbrowserlogin.login()
+    else:  # overleaf CE
+        import olcebrowserlogin as olbrowserlogin
+        store = olbrowserlogin.login(server)
 
-    def download_project_pdf():
-        nonlocal project_name
-        project_name = project_name or os.path.basename(os.getcwd())
-        project = execute_action(lambda: client.get_project(project_name),
-                                 "Querying project",
-                                 "Project queried successfully.",
-                                 "Project could not be queried.", verbose)
-
-        file_name, content = client.download_pdf(project["id"])  #type:ignore
-
-        if file_name and content:
-            # Change the current directory to the specified sync path
-            os.chdir(download_path)
-            open(file_name, 'wb').write(content)
-
-        return True
-
-    if not os.path.isfile(cookie_path):
-        raise click.ClickException("Cookie not found. Please login.")
-
-    with open(cookie_path, 'rb') as f:
-        store = pickle.load(f)
-
-    client = OverleafClient(store["cookie"], store["csrf"])
-
-    click.clear()
-
-    execute_action(download_project_pdf, "Downloading project's PDF",
-                   "Downloading project's PDF successful.",
-                   "Downloading project's PDF failed. Please try again.", verbose)
-
-
-def login_handler(path):
-    store = olbrowserlogin.login()
     if store is None: return False
 
     with open(path, 'wb+') as f:
@@ -494,23 +440,37 @@ def olignore_keep_list(olignore_path):
     return keep_list
 
 
-def get_project_name(project_name, info_path):
-    """If the project_name is provided, save it to file info_path. Otherwise, try
-    to read it from info_path. If the project_name is still empty, then use
-    currrent folder name.
+def read_info():
+    info = {}
+    if os.path.isfile(".olinfo"):
+        with open(".olinfo", 'r') as f:
+            info = json.load(f)
+    return info
 
-    """
-    if project_name:
-        with open(info_path, "w") as fw:
-            fw.write(project_name)
-    elif os.path.isfile(info_path):
-        with open(info_path, 'r') as f:
-            project_name = f.read().rstrip()
-    else:
-        project_name = os.path.basename(os.getcwd())
-        with open(info_path, "w") as fw:
-            fw.write(project_name)
-    return project_name
+
+def update_info(**args):
+    info = read_info()
+    for k in args:
+        info[k] = args[k]
+    with open(".olinfo", "w") as fw:
+        json.dump(info, fw)
+
+
+def get_key(key):
+    info = read_info()
+    return info[key] if key in info else None
+
+
+def get_client(store):
+    client = None
+    server = get_key('server')
+    if server is None:  # overleaf
+        from olclient import OverleafClient
+        client = OverleafClient(store["cookie"], store["csrf"])
+    else:  # overleaf CE
+        from olceclient import OverleafClient
+        client = OverleafClient(server, store["cookie"], store["csrf"])
+    return client
 
 
 if __name__ == "__main__":

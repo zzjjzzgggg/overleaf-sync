@@ -16,17 +16,13 @@ requires = [
     "beautifulsoup4",
     "yaspin",
     "python-dateutil",
-    "click == 8.0.1",
-    "PyQt5",
-    "PyQt5-Qt5",
-    "PyQt5-sip",
-    "PyQtWebEngine",
-    "PyQtWebEngine-Qt5"
+    "click",
+    "PySide6"
 ]
 keywords = "overleaf sync latex tex"
 
 [tool.flit.scripts]
-ols = "olsync.olsync:main"
+ols = "olsync:main"
 
 [tool.yapf]
 column_limit = 82
