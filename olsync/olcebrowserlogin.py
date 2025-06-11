@@ -106,9 +106,7 @@ class OlBrowserLoginWindow(QMainWindow):
 
 def login(server_ip):
     from PySide6.QtCore import QLoggingCategory
-    QLoggingCategory.setFilterRules('''\
-    qt.webenginecontext.info=false
-    ''')
+    QLoggingCategory.setFilterRules('qt.webenginecontext.info=false')
 
     app = QApplication([])
     ol_browser_login_window = OlBrowserLoginWindow(server_ip)
@@ -124,5 +122,5 @@ def login(server_ip):
     }
 
 
-if __name__ == '__main__':
-    print(login("202.117.43.87"))
+#if __name__ == '__main__':
+    #print(login("x.x.x.x"))
