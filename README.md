@@ -2,7 +2,7 @@
 
 ## Install
 ```
-    pip install -e .
+pip install -e .
 ```
 
 ## Syncing
