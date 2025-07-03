@@ -16,35 +16,32 @@ from yaspin import yaspin
 
 
 @click.group(invoke_without_command=True)
-@click.option('--push',
-              'push',
-              is_flag=True,
-              help="Push local project files to Overleaf only.")
-@click.option('--pull',
-              'pull',
-              is_flag=True,
-              help="Pull remote project files to local only.")
-@click.option('-n',
-              '--name',
-              'project_name',
-              default="",
-              help="Specify the project name explictly.")
+@click.option('--push', 'push', is_flag=True, help="Push local files to remote.")
+@click.option('--pull', 'pull', is_flag=True, help="Pull remote files to local.")
+@click.option(
+    '-n',
+    '--name',
+    'project_name',
+    default="",
+    help=
+    "Specify the project name, default to use current folder name as project name."
+)
 @click.option('--store-path',
               'cookie_path',
               default=".olauth",
               type=click.Path(exists=False),
-              help="Relative path to load the persisted Overleaf cookie.")
+              help="Path to load the persisted cookie (default .olauth).")
 @click.option('--hash-path',
               'hash_path',
               default=".olhash",
               type=click.Path(exists=False),
-              help="Relative path to load the persisted file hashes.")
+              help="Path to load the file hashes (default .olhash).")
 @click.option('-i',
               '--olignore',
               'olignore_path',
               default=".olignore",
               type=click.Path(exists=False),
-              help="Path to the .olignore file.")
+              help="Path to the ignored file list (default .olignore).")
 @click.option('-v',
               '--verbose',
               'verbose',
@@ -61,7 +58,7 @@ def main(ctx, push, pull, project_name, cookie_path, hash_path, olignore_path,
     for _ in range(5):
         if not os.path.isfile(cookie_path):
             os.chdir('..')
-            print("Current directory:", os.getcwd())
+            print("Switch to directory", os.getcwd())
         else:
             break
 
@@ -176,15 +173,16 @@ def main(ctx, push, pull, project_name, cookie_path, hash_path, olignore_path,
 
 
 @main.command(name='login')
-@click.option('-s',
-              '--server_ip',
-              default=None,
-              help="Server IP and if None then defaults to overleaf.com")
+@click.option(
+    '-s',
+    '--server_ip',
+    default=None,
+    help="Server IP for Overleaf CE. If not provided, default to overleaf.com.")
 @click.option('--path',
               'cookie_path',
               default=".olauth",
               type=click.Path(exists=False),
-              help="Path to store the persisted Overleaf cookie.")
+              help="Path to store the persisted cookie (default to .olauth).")
 @click.option('-v',
               '--verbose',
               'verbose',
@@ -208,7 +206,7 @@ def login(server_ip, cookie_path, verbose):
               'cookie_path',
               default=".olauth",
               type=click.Path(exists=False),
-              help="Relative path to load the persisted Overleaf cookie.")
+              help="Path to load the persisted cookie (default .olauth).")
 @click.option('-v',
               '--verbose',
               'verbose',
