@@ -76,7 +76,7 @@ class OlBrowserLoginWindow(QMainWindow):
         self.webview.loadFinished.connect(lambda x: self.webview.page(
         ).runJavaScript(JAVASCRIPT_CSRF_EXTRACTOR, 0, callback))
 
-     def handle_cookie_added(self, cookie):
+    def handle_cookie_added(self, cookie):
         cookie_name = cookie.name().data().decode('utf-8')
         if cookie_name in COOKIE_NAMES:
             self._cookies[cookie_name] = cookie.value().data().decode('utf-8')
