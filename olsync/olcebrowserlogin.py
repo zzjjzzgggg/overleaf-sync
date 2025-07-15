@@ -15,9 +15,6 @@ from PySide6.QtWebEngineCore import (QWebEnginePage, QWebEngineProfile,
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QApplication, QMainWindow
 
-# Where to get the CSRF Token and where to send the login request to
-# JS snippet to get the first link
-JAVASCRIPT_EXTRACT_PROJECT_URL = "document.getElementsByClassName('dash-cell-name')[1].firstChild.href"
 # JS snippet to extract the csrfToken
 JAVASCRIPT_CSRF_EXTRACTOR = "document.getElementsByName('ol-csrfToken')[0].content"
 # Name of the cookies we want to extract
@@ -72,21 +69,14 @@ class OlBrowserLoginWindow(QMainWindow):
     def handle_load_finished(self):
 
         def callback(result):
+            self._csrf = result
+            self._login_success = True
+            QCoreApplication.quit()
 
-            def callback(result):
-                self._csrf = result
-                self._login_success = True
-                QCoreApplication.quit()
+        self.webview.loadFinished.connect(lambda x: self.webview.page(
+        ).runJavaScript(JAVASCRIPT_CSRF_EXTRACTOR, 0, callback))
 
-            self.webview.load(QUrl.fromUserInput(result))
-            self.webview.loadFinished.connect(lambda x: self.webview.page(
-            ).runJavaScript(JAVASCRIPT_CSRF_EXTRACTOR, 0, callback))
-
-        if self.webview.url().toString() == self.PROJECT_URL:
-            self.webview.page().runJavaScript(JAVASCRIPT_EXTRACT_PROJECT_URL, 0,
-                                              callback)
-
-    def handle_cookie_added(self, cookie):
+     def handle_cookie_added(self, cookie):
         cookie_name = cookie.name().data().decode('utf-8')
         if cookie_name in COOKIE_NAMES:
             self._cookies[cookie_name] = cookie.value().data().decode('utf-8')
@@ -122,5 +112,5 @@ def login(server_ip):
     }
 
 
-#if __name__ == '__main__':
-    #print(login("x.x.x.x"))
+if __name__ == '__main__':
+    print(login("219.245.185.245"))
